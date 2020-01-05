@@ -19,9 +19,9 @@
 
     <!-- Parent Project -->
     <parent>
-        <groupId>org.forgerock.openam</groupId>
+        <groupId>org.openidentityplatform.openam</groupId>
         <artifactId>openam-federation</artifactId>
-        <version>14.1.9-SNAPSHOT</version>
+        <version>14.4.3-SNAPSHOT</version>
     </parent>
 
     <!-- Component Definition -->
@@ -91,11 +91,11 @@
             <scope>provided</scope>
         </dependency>
         <dependency>
-            <groupId>org.forgerock.openam</groupId>
+            <groupId>org.openidentityplatform.openam</groupId>
             <artifactId>openam-shared</artifactId>
         </dependency>
         <dependency>
-            <groupId>org.forgerock.openam</groupId>
+            <groupId>org.openidentityplatform.openam</groupId>
             <artifactId>openam-idpdiscovery</artifactId>
         </dependency>
     </dependencies>

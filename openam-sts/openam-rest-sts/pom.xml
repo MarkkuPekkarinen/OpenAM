@@ -18,9 +18,9 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>org.forgerock.openam</groupId>
+        <groupId>org.openidentityplatform.openam</groupId>
         <artifactId>openam-sts</artifactId>
-        <version>14.1.9-SNAPSHOT</version>
+        <version>14.4.3-SNAPSHOT</version>
     </parent>
 
     <name>OpenAM REST STS</name>
@@ -30,23 +30,23 @@
 
     <dependencies>
         <dependency>
-            <groupId>org.forgerock.openam</groupId>
+            <groupId>org.openidentityplatform.openam</groupId>
             <artifactId>openam-federation-library</artifactId>
         </dependency>
         <dependency>
-            <groupId>org.forgerock.openam</groupId>
+            <groupId>org.openidentityplatform.openam</groupId>
             <artifactId>openam-common-sts</artifactId>
         </dependency>
         <dependency>
-            <groupId>org.forgerock.openam</groupId>
+            <groupId>org.openidentityplatform.openam</groupId>
             <artifactId>openam-client-sts</artifactId>
         </dependency>
         <dependency>
-            <groupId>org.forgerock.openam</groupId>
+            <groupId>org.openidentityplatform.openam</groupId>
             <artifactId>openam-core</artifactId>
         </dependency>
         <dependency>
-            <groupId>org.forgerock.openam</groupId>
+            <groupId>org.openidentityplatform.openam</groupId>
             <artifactId>openam-rest</artifactId>
         </dependency>
         <dependency>
@@ -71,28 +71,24 @@
             <artifactId>javax.servlet-api</artifactId>
             <scope>provided</scope>
         </dependency>
-        <dependency>
-            <groupId>javax.ws.rs</groupId>
-            <artifactId>jsr311-api</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.sun.jersey</groupId>
-            <artifactId>jersey-bundle</artifactId>
-        </dependency>
+		<dependency>
+		    <groupId>org.glassfish.jersey.bundles</groupId>
+		    <artifactId>jaxrs-ri</artifactId>
+		</dependency>
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
         </dependency>
         <dependency>
-            <groupId>org.forgerock.openam</groupId>
+            <groupId>org.openidentityplatform.openam</groupId>
             <artifactId>openam-slf4j</artifactId>
         </dependency>
         <dependency>
-            <groupId>org.forgerock.commons</groupId>
+            <groupId>org.openidentityplatform.commons</groupId>
             <artifactId>json-resource</artifactId>
         </dependency>
         <dependency>
-            <groupId>org.forgerock.commons</groupId>
+            <groupId>org.openidentityplatform.commons</groupId>
             <artifactId>json-resource-http</artifactId>
         </dependency>
 

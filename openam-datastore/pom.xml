@@ -19,9 +19,9 @@
     
     <!-- Parent Project -->
     <parent>
-        <groupId>org.forgerock.openam</groupId>
+        <groupId>org.openidentityplatform.openam</groupId>
         <artifactId>openam</artifactId>
-        <version>14.1.9-SNAPSHOT</version>
+        <version>14.4.3-SNAPSHOT</version>
     </parent>
 
     <artifactId>openam-datastore</artifactId>
@@ -31,20 +31,22 @@
 
     <dependencies>
         <dependency>
-            <groupId>org.forgerock.openam</groupId>
+            <groupId>org.openidentityplatform.openam</groupId>
             <artifactId>openam-core</artifactId>
         </dependency>
         <dependency>
-            <groupId>org.forgerock.openam</groupId>
+            <groupId>org.openidentityplatform.openam</groupId>
             <artifactId>openam-ldap-utils</artifactId>
         </dependency>
         <dependency>
             <groupId>org.testng</groupId>
             <artifactId>testng</artifactId>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.powermock</groupId>
-            <artifactId>powermock-api-mockito</artifactId>
+            <artifactId>powermock-api-mockito2</artifactId>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.powermock</groupId>
@@ -53,6 +55,7 @@
         <dependency>
             <groupId>org.easytesting</groupId>
             <artifactId>fest-assert</artifactId>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 </project>

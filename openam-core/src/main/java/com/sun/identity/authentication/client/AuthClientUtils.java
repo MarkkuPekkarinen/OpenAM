@@ -25,6 +25,7 @@
  * $Id: AuthClientUtils.java,v 1.40 2010/01/22 03:31:01 222713 Exp $
  *
  * Portions Copyrighted 2010-2016 ForgeRock AS.
+ * Portions Copyrighted 2019 Open Source Solution Technology Corporation
  */
 package com.sun.identity.authentication.client;
 
@@ -71,6 +72,8 @@ import com.sun.identity.sm.SMSEntry;
 import com.sun.identity.sm.SMSException;
 import com.sun.identity.sm.ServiceSchema;
 import com.sun.identity.sm.ServiceSchemaManager;
+
+import org.forgerock.openam.core.realms.Realm;
 import org.forgerock.openam.security.whitelist.ValidGotoUrlExtractor;
 import org.forgerock.openam.session.SessionServiceURLService;
 import org.forgerock.openam.shared.security.whitelist.RedirectUrlValidator;
@@ -1402,12 +1405,10 @@ public class AuthClientUtils {
     public static String getOrganizationDN(String orgParam,boolean noQueryParam,
         HttpServletRequest request) {
         String orgName = null;
-        SSOToken token = (SSOToken) AccessController.doPrivileged(
-            AdminTokenAction.getInstance());
 
         // try to get the host name if org or domain Param is null
         try {
-            orgName = IdUtils.getOrganization(token,orgParam);
+        	orgName=Realm.of(orgParam).asDN();
             if ((orgName != null) && (orgName.length() != 0)) {
                 orgName = orgName.toLowerCase();
             }
@@ -1432,7 +1433,7 @@ public class AuthClientUtils {
                 }
 
                 try {
-                    orgName = IdUtils.getOrganization(token,orgParam);
+                    orgName=Realm.of(orgParam).asDN();
                 } catch (Exception e) {
                     if (utilDebug.messageEnabled()) {
                         utilDebug.message("Could not get orgName='{}'", orgParam, e);
@@ -1855,9 +1856,20 @@ public class AuthClientUtils {
             bundle = Locale.getInstallResourceBundle(BUNDLE_NAME);
         }
 
+        return getErrorVal(errorCode, type, bundle);
+    }
+    
+    public static String getErrorVal(String errorCode,String type,
+            ResourceBundle bundle) {
+
+        ResourceBundle errMsgBundle = bundle;
+        if (errMsgBundle == null) {
+            errMsgBundle = Locale.getInstallResourceBundle(BUNDLE_NAME);
+        }
+
         String errorMsg=null;
         String templateName=null;
-        String resProperty = bundle.getString(errorCode);
+        String resProperty = errMsgBundle.getString(errorCode);
         if (utilDebug.messageEnabled()) {
             utilDebug.message("errorCod='{}', resProperty='{}'", errorCode, resProperty);
         }

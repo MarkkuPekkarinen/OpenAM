@@ -13,6 +13,7 @@
  *
  * Copyright 2012-2016 ForgeRock AS.
  * Portions Copyrighted 2015 Nomura Research Institute, Ltd.
+ * Portions Copyrighted 2018 Open Source Solution Technology Corporation
  */
 
 package org.forgerock.openam.oauth2;
@@ -31,7 +32,7 @@ public class OAuth2Constants {
          *      href="http://tools.ietf.org/html/draft-ietf-oauth-v2-24#section-3.1">3.1.
          *      Authorization Endpoint</a>
          */
-        AUTHORIZATION_ENDPOINT,
+        AUTHORIZATION_ENDPOINT("/authorize"),
         /**
          * Token endpoint - used to exchange an authorization grant for an
          * access token, typically with client authentication.
@@ -40,7 +41,18 @@ public class OAuth2Constants {
          *      href="http://tools.ietf.org/html/draft-ietf-oauth-v2-24#section-3.2">3.2.
          *      Token Endpoint</a>
          */
-        TOKEN_ENDPOINT,
+        TOKEN_ENDPOINT("/access_token"),
+        /**
+         * Device Authorization Endpoint (OAuth 2.0 Device Flow)
+         * - The authorization server's endpoint capable of issuing device
+         *   verification codes, user codes, and verification URLs.
+         */
+        DEVICE_AUTHORIZATION_ENDPOINT("/device/code"),
+        /**
+         * End-user verification URI (OAuth 2.0 Device Flow)
+         * - The end-user verification URI on the authorization server.
+         */
+        END_USER_VERIFICATION_URI("/device/user"),
         /**
          * Extension grant types MAY define additional endpoints as needed.
          *
@@ -48,7 +60,39 @@ public class OAuth2Constants {
          *      href="http://tools.ietf.org/html/draft-ietf-oauth-v2-24#section-3">3.
          *      Protocol Endpoints</a>
          */
-        OTHER
+        OTHER("");
+
+        private final String path;
+
+        /**
+         * Constructor.
+         * @param path The resource path.
+         */
+        private EndpointType(String path) {
+            this.path = path;
+        }
+
+        /**
+         * Get the resource path.
+         * @return The resource path.
+         */
+        public String getPath() {
+            return path;
+        }
+
+        /**
+         * Get EndpointType from the resource path.
+         * @param path The resource path.
+         * @return EndpointType
+         */
+        public static EndpointType get(String path) {
+            for (EndpointType type : values()) {
+                if (type.getPath().equals(path)) {
+                    return type;
+                }
+            }
+            return null;
+        }
     }
 
     /*
@@ -272,7 +316,7 @@ public class OAuth2Constants {
 
         public static final String JWT_BEARER = "urn:ietf:params:oauth:grant-type:jwt-bearer";
 
-        public static final String DEVICE_CODE = "http://oauth.net/grant_type/device/1.0";
+        public static final String DEVICE_CODE = "urn:ietf:params:oauth:grant-type:device_code";
     }
 
     /**
@@ -764,7 +808,7 @@ public class OAuth2Constants {
     public static class DeviceCode {
         public static final String DEVICE_CODE = "device_code";
         public static final String USER_CODE = "user_code";
-        public static final String VERIFICATION_URL = "verification_url";
+        public static final String VERIFICATION_URI = "verification_uri";
         public static final String INTERVAL = "interval";
     }
 
@@ -940,7 +984,7 @@ public class OAuth2Constants {
         public static final String AZP = "azp";
         public static final String EXP = "exp";
         public static final String IAT =  "iat";
-        public static final String AUTH_TIME = "auth_time";
+        public static final String AUTH_TIME = "auth:time";
         public static final String NONCE = "nonce";
         public static final String OPS = "org.forgerock.openidconnect.ops";
         public static final String LEGACY_OPS = "ops";

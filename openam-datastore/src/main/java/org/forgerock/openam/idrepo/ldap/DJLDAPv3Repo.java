@@ -22,11 +22,13 @@ import static org.forgerock.opendj.ldap.LDAPConnectionFactory.*;
 
 import java.nio.charset.Charset;
 import java.security.GeneralSecurityException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -810,8 +812,10 @@ public class DJLDAPv3Repo extends IdRepo implements IdentityMovedOrRenamedListen
         }
         try {
             conn = createConnection();
-            SearchResultEntry entry = conn.searchSingleEntry(
-                    LDAPRequests.newSingleEntrySearchRequest(dn, attrs.toArray(new String[attrs.size()])));
+            
+            SearchRequest searchRequest = LDAPRequests.newSingleEntrySearchRequest(dn, attrs.toArray(new String[attrs.size()]));
+            DEBUG.message("DJLDAPv3Repo.getAttributes: executing request: "+ searchRequest.toString());
+            SearchResultEntry entry = conn.searchSingleEntry(searchRequest);
             for (Attribute attribute : entry.getAllAttributes()) {
                 String attrName = attribute.getAttributeDescriptionAsString();
                 if (!definedAttributes.isEmpty() && !definedAttributes.contains(attrName)) {
@@ -826,7 +830,7 @@ public class DJLDAPv3Repo extends IdRepo implements IdentityMovedOrRenamedListen
                 }
             }
         } catch (LdapException ere) {
-            DEBUG.error("An error occurred while getting user attributes", ere);
+            DEBUG.error("DJLDAPv3Repo.getAttributes: An error occurred while getting user attributes", ere);
             handleErrorResult(ere);
         } finally {
             IOUtils.closeIfNotNull(conn);
@@ -836,7 +840,7 @@ public class DJLDAPv3Repo extends IdRepo implements IdentityMovedOrRenamedListen
         }
 
         if (DEBUG.messageEnabled()) {
-            DEBUG.message("getAttributes returning attrMap: "
+            DEBUG.message("DJLDAPv3Repo.getAttributes: getAttributes returning attrMap: "
                     + IdRepoUtils.getAttrMapWithoutPasswordAttrs(result, null));
         }
         return result;
@@ -2349,6 +2353,7 @@ public class DJLDAPv3Repo extends IdRepo implements IdentityMovedOrRenamedListen
         }
         Filter filter = Filter.and(Filter.equality(searchAttr, name), getObjectClassFilter(type));
         SearchRequest searchRequest = LDAPRequests.newSearchRequest(searchBase, defaultScope, filter, DN_ATTR);
+        DEBUG.message("DJLDAPv3Repo.getDN: executing request: "+ searchRequest.toString());
         Connection conn = null;
         try {
             conn = createConnection();
@@ -2357,6 +2362,10 @@ public class DJLDAPv3Repo extends IdRepo implements IdentityMovedOrRenamedListen
             while (reader.hasNext()) {
                 if (reader.isEntry()) {
                     if (entry != null) {
+                    	SearchResultEntry anotherEntry = reader.readEntry();
+                    	DEBUG.error("DJLDAPv3Repo.getDN: found multiple entrires: " 
+                    			+ entry.getName().toString() 
+                    			+ " and " + anotherEntry.getName().toString());
                         throw newIdRepoException(ResultCode.CLIENT_SIDE_UNEXPECTED_RESULTS_RETURNED,
                                 IdRepoErrorCode.LDAP_EXCEPTION_OCCURRED, CLASS_NAME,
                                 ResultCode.CLIENT_SIDE_UNEXPECTED_RESULTS_RETURNED.intValue());
@@ -2368,7 +2377,7 @@ public class DJLDAPv3Repo extends IdRepo implements IdentityMovedOrRenamedListen
                 }
             }
             if (entry == null) {
-                DEBUG.message("Unable to find entry with name: " + name + " under searchbase: " + searchBase
+                DEBUG.message("DJLDAPv3Repo.getDN: Unable to find entry with name: " + name + " under searchbase: " + searchBase
                         + " with scope: " + defaultScope);
 
                 throw new IdentityNotFoundException(IdRepoBundle.BUNDLE_NAME, IdRepoErrorCode.TYPE_NOT_FOUND,
@@ -2377,11 +2386,11 @@ public class DJLDAPv3Repo extends IdRepo implements IdentityMovedOrRenamedListen
             }
             dn = entry.getName().toString();
         } catch (LdapException ere) {
-            DEBUG.error("An error occurred while querying entry DN", ere);
+            DEBUG.error("DJLDAPv3Repo.getDN: An error occurred while querying entry DN", ere);
             handleErrorResult(ere);
         } catch (SearchResultReferenceIOException srrioe) {
             //should never ever happen...
-            DEBUG.error("Got reference instead of entry", srrioe);
+            DEBUG.error("DJLDAPv3Repo.getDN: Got reference instead of entry", srrioe);
             throw newIdRepoException(IdRepoErrorCode.SEARCH_FAILED, CLASS_NAME);
         } finally {
             IOUtils.closeIfNotNull(conn);

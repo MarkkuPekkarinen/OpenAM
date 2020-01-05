@@ -19,9 +19,9 @@
 
     <!-- Parent Project -->
     <parent>
-        <groupId>org.forgerock.openam</groupId>
+        <groupId>org.openidentityplatform.openam</groupId>
         <artifactId>openam-authentication</artifactId>
-        <version>14.0.0-SNAPSHOT</version>
+        <version>14.4.3-SNAPSHOT</version>
     </parent>
 
     <!-- Component Definition -->

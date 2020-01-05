@@ -44,7 +44,11 @@ public class DefaultOpenIdConnectTokenClaimMapper implements OpenIdConnectTokenC
             final AMIdentity amIdentity = IdUtils.getIdentity(token);
             final HashSet<String> attributeNames = new HashSet<>(claimMap.size());
             attributeNames.addAll(claimMap.values());
-            Map<String, String> joinedMappings =  joinMultiValues(amIdentity.getAttributes(attributeNames));
+            Map<String, Set<String>> idAttributes = new HashMap<>();
+            try {
+            	idAttributes.putAll(amIdentity.getAttributes(attributeNames));
+            } catch (IdRepoException e) {} //if profile does not exist ignore error
+            final Map<String, String> joinedMappings = joinMultiValues(idAttributes);
             /*
              At this point, the key entries joinedMappings will be the attribute name, and the value will be the
              corresponding value pulled from the user data store. Because I need to return a Map where the keys are the
@@ -53,9 +57,10 @@ public class DefaultOpenIdConnectTokenClaimMapper implements OpenIdConnectTokenC
              */
             Map<String, String> adjustedMap = new HashMap<>(joinedMappings.size());
             for (Map.Entry<String, String> claimMapEntry : claimMap.entrySet()) {
-                if (!StringUtils.isEmpty(joinedMappings.get(claimMapEntry.getValue()))) {
+                if (!StringUtils.isEmpty(joinedMappings.get(claimMapEntry.getValue()))) 
                     adjustedMap.put(claimMapEntry.getKey(), joinedMappings.get(claimMapEntry.getValue()));
-                }
+                else 
+                	adjustedMap.put(claimMapEntry.getKey(), token.getProperty(claimMapEntry.getValue(),true));
             }
             return adjustedMap;
         } catch (IdRepoException | SSOException e) {

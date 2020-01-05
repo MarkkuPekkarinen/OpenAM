@@ -19,8 +19,8 @@
 
     <parent>
         <artifactId>openam-tools</artifactId>
-        <groupId>org.forgerock.openam</groupId>
-        <version>14.1.9-SNAPSHOT</version>
+        <groupId>org.openidentityplatform.openam</groupId>
+        <version>14.4.3-SNAPSHOT</version>
     </parent>
 
     <name>OpenAM ServletContext License Locator</name>
@@ -34,7 +34,7 @@
 
     <dependencies>
         <dependency>
-            <groupId>org.forgerock.openam</groupId>
+            <groupId>org.openidentityplatform.openam</groupId>
             <artifactId>openam-license-core</artifactId>
         </dependency>
         <dependency>
@@ -45,12 +45,14 @@
 
         <!-- Test dependencies -->
         <dependency>
+		  <groupId>org.mockito</groupId>
+		  <artifactId>mockito-core</artifactId>
+		  <scope>test</scope>
+		</dependency>
+		<dependency>
             <groupId>org.testng</groupId>
             <artifactId>testng</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.mockito</groupId>
-            <artifactId>mockito-all</artifactId>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 

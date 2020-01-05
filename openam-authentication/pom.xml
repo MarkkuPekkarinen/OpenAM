@@ -19,9 +19,9 @@
 
     <!-- Parent Project -->
     <parent>
-        <groupId>org.forgerock.openam</groupId>
+        <groupId>org.openidentityplatform.openam</groupId>
         <artifactId>openam</artifactId>
-        <version>14.1.9-SNAPSHOT</version>
+        <version>14.4.3-SNAPSHOT</version>
     </parent>
 
     <!-- Component Definition -->
@@ -58,27 +58,14 @@
         <module>openam-auth-device-id</module>
         <module>openam-auth-saml2</module>
         <module>openam-auth-amster</module>
+        <module>openam-auth-securid</module>
         <module>openam-auth-recaptcha</module>
+        <module>openam-auth-webauthn</module>
     </modules>
-
-    <profiles>
-        <profile>
-            <id>release</id>
-            <modules>
-                <module>openam-auth-securid</module>
-            </modules>
-        </profile>
-        <profile>
-            <id>development</id>
-            <modules>
-                <module>openam-auth-securid</module>
-            </modules>
-        </profile>
-    </profiles>
 
     <dependencies>
         <dependency>
-            <groupId>org.forgerock.openam</groupId>
+            <groupId>org.openidentityplatform.openam</groupId>
             <artifactId>openam-core</artifactId>
         </dependency>
     </dependencies>

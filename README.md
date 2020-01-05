@@ -5,6 +5,7 @@
 [![Last commit](https://img.shields.io/github/last-commit/OpenIdentityPlatform/OpenAM.svg)](https://github.com/OpenIdentityPlatform/OpenAM/commits/master)
 [![License](https://img.shields.io/badge/license-CDDL-blue.svg)](https://github.com/OpenIdentityPlatform/OpenAM/blob/master/LICENSE.md)
 [![Downloads](https://img.shields.io/github/downloads/OpenIdentityPlatform/OpenAM/total.svg)](https://github.com/OpenIdentityPlatform/OpenAM/releases)
+[![Docker](https://shields.beevelop.com/docker/pulls/openidentityplatform/openam.svg)](https://hub.docker.com/r/openidentityplatform/openam)
 [![Gitter](https://img.shields.io/gitter/room/nwjs/nw.js.svg)](https://gitter.im/OpenIdentityPlatform/OpenAM)
 [![Top language](https://img.shields.io/github/languages/top/OpenIdentityPlatform/OpenAM.svg)](https://github.com/OpenIdentityPlatform/OpenAM)
 [![Code size in bytes](https://img.shields.io/github/languages/code-size/OpenIdentityPlatform/OpenAM.svg)](https://github.com/OpenIdentityPlatform/OpenAM)
@@ -21,10 +22,11 @@ This project is licensed under the [Common Development and Distribution License 
 * [OpenAM WAR](https://github.com/OpenIdentityPlatform/OpenAM/releases) (All OS)
 * [OpenAM Docker](https://hub.docker.com/r/openidentityplatform/openam/) (All OS)
 ### Download OpenAM Policy Agents:
-* [OpenAM Java Policy Agents](https://github.com/OpenIdentityPlatform/OpenAM-JEE-Agents#downloads) (All OS)
+* [OpenAM Java Policy Agent](https://github.com/OpenIdentityPlatform/OpenAM-JEE-Agents#downloads) (All OS)
 * [OpenAM .Net/Mono Policy Agents](https://github.com/OpenIdentityPlatform/OpenAM-.Net-Agent#Установка-файлов-бинарной-поставки) (Windows/Linux)
-* [OpenAM Web Policy Agents Apache 2.2](https://github.com/OpenIdentityPlatform/OpenAM-Web-Agents#downloads) (Linux x64)
-* [OpenAM Web Policy Agents Apache 2.4](https://github.com/OpenIdentityPlatform/OpenAM-Web-Agents#downloads) (Linux x64)
+* [OpenAM Web Policy Agent Apache 2.2](https://github.com/OpenIdentityPlatform/OpenAM-Web-Agents#downloads) (Linux x64)
+* [OpenAM Web Policy Agent Apache 2.4](https://github.com/OpenIdentityPlatform/OpenAM-Web-Agents#downloads) (Linux x64)
+* [OpenAM Web Policy Agent (IIS  Windows x32/x64 ZIP)](https://ci.appveyor.com/api/buildjobs/cnebrw2f43my9vxr/artifacts/IIS_WINNT_4.1.0.zip)
 
 ## How-to build
 For windows use:
@@ -34,18 +36,38 @@ git config --system core.longpaths true
 
 ```bash
 git clone --recursive  https://github.com/OpenIdentityPlatform/OpenAM.git
-mvn -DskipTests -Dmaven.javadoc.skip=true install -f OpenAM/OpenDJ/forgerock-parent
-mvn -DskipTests -Dmaven.javadoc.skip=true install -f OpenAM/OpenDJ
+#mvn -DskipTests -Dmaven.javadoc.skip=true install -f OpenAM/OpenDJ/forgerock-parent
+#mvn -DskipTests -Dmaven.javadoc.skip=true install -f OpenAM/OpenDJ
 mvn install -f OpenAM
 ```
 
 ## How-to run after build
+Add FQDN host name in /etc/hosts (Windows c:\windows\systems32\drivers\etc\hosts):
+
 ```bash
-mvn tomcat7:run-war -f OpenAM/openam-server
+127.0.0.1 login.domain.com
 ```
-The next step is then to go to [http://localhost:8080/openam](http://localhost:8080/openam) where you'll see the OpenAM welcome page
+
+Run OpenAM from source:
+
+```bash
+mvn cargo:run -f OpenAM/openam-server
+```
+
+The next step is then to go to [http://login.domain.com:8080/openam](http://login.domain.com:8080/openam) where you'll see the OpenAM welcome page
+
+---
+**Important Note**
+
+You must allocate at least 1024m (2048m with embedded OpenDJ) heap memory for OpenAM JVM using -Xmx option. 
+
+For example, `-Xmx2048m`
+
+---
+
 
 ## Support and Mailing List Information
+* OpenAM Community Wiki: https://github.com/OpenIdentityPlatform/OpenAM/wiki
 * OpenAM Community Mailing List: open-identity-platform-openam@googlegroups.com
 * OpenAM Community Archive: https://groups.google.com/d/forum/open-identity-platform-openam
 * OpenAM Community on Gitter: https://gitter.im/OpenIdentityPlatform/OpenAM

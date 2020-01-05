@@ -42,6 +42,9 @@ import com.sun.identity.shared.debug.Debug;
 import org.forgerock.util.thread.listener.ShutdownListener;
 
 import java.security.PrivilegedAction;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 /**
  * The class is used to perform privileged operations using
@@ -90,7 +93,7 @@ public class AdminTokenAction implements PrivilegedAction<SSOToken> {
     /**
      * Singleton instance.
      */
-    private static volatile AdminTokenAction instance;
+    private static AdminTokenAction instance;
 
     private final SSOTokenManager tokenManager;
     private SSOToken appSSOToken;
@@ -119,7 +122,6 @@ public class AdminTokenAction implements PrivilegedAction<SSOToken> {
         }
         return instance;
     }
-
     /**
      * Default constructor
      */
@@ -132,7 +134,7 @@ public class AdminTokenAction implements PrivilegedAction<SSOToken> {
             }
         });
         validateSession = SystemProperties.getAsBoolean(VALIDATE_SESSION);
-    }
+   }
 
     /**
      * Informs AdminTokenAction that Authentication has been initialized
@@ -149,8 +151,6 @@ public class AdminTokenAction implements PrivilegedAction<SSOToken> {
                     ((appSSOToken == null) ? "null" :
                             appSSOToken.getClass().getName()));
         }
-        // Clear internalAppSSOToken
-        internalAppSSOToken = null;
     }
 
     /**
@@ -192,36 +192,51 @@ public class AdminTokenAction implements PrivilegedAction<SSOToken> {
      * @see java.security.PrivilegedAction#run()
      */
     public SSOToken run() {
-        // Check if we have a valid cached SSOToken
-        if (appSSOToken != null && tokenManager.isValidToken(appSSOToken)) {
-            try {
-                if (validateSession) {
-                    tokenManager.refreshSession(appSSOToken);
-                }
-                if (tokenManager.isValidToken(appSSOToken)) {
-                    return appSSOToken;
-                }
-            } catch (SSOException ssoe) {
-                debug.error("AdminTokenAction.reset: couldn't retrieve valid token.", ssoe);
+        SSOToken answer = null;
+    	synchronized (this) {
+	        // Check if we have a valid cached SSOToken
+	        if (appSSOToken != null) {
+	        	if(tokenManager.isValidToken(appSSOToken)) {
+		            try {
+		                if (validateSession) {
+		                    tokenManager.refreshSession(appSSOToken);
+		                }
+		                if (tokenManager.isValidToken(appSSOToken)) {
+		                    return appSSOToken;
+		                }else {
+		            		debug.message("AdminTokenAction.reset: invalid token.");
+		                    appSSOToken = null;
+		            	}
+		            } catch (SSOException ssoe) {
+		                debug.error("AdminTokenAction.reset: couldn't retrieve valid token.", ssoe);
+	                    appSSOToken = null;
+		            }
+	        	}else {
+	        		debug.message("AdminTokenAction.reset: invalid token.");
+	                appSSOToken = null;
+	        	}
+	        }
+
+        	// Try getting the token from serverconfig.xml
+            // Check if internalAppSSOToken is present
+            if (!authInitialized && internalAppSSOToken != null) { 
+            	if (tokenManager.isValidToken(internalAppSSOToken)) {
+            		return internalAppSSOToken;
+            	}else {
+            		internalAppSSOToken=null;
+            	}
             }
-        }
-
-        // Check if internalAppSSOToken is present
-        if (internalAppSSOToken != null && tokenManager.isValidToken(internalAppSSOToken)) {
-            return internalAppSSOToken;
-        }
-
-        // Try getting the token from serverconfig.xml
-        SSOToken answer = getSSOToken();
-        if (answer != null) {
-            if (!SystemProperties.isServerMode() || authInitialized) {
-                appSSOToken = answer;
+        	answer = getSSOToken();
+            if (answer != null) {
+                if (!SystemProperties.isServerMode() || authInitialized) {
+                    appSSOToken = answer;
+                }
+                return answer;
+            } else if (debug.messageEnabled()) {
+                debug.message("AdminTokenAction::run Unable to get SSOToken from serverconfig.xml");
             }
-            return answer;
-        } else if (debug.messageEnabled()) {
-            debug.message("AdminTokenAction::run Unable to get SSOToken from serverconfig.xml");
-        }
-
+		}
+        
         // Check for configured Application Token Provider in AMConfig.properties
         String appTokenProviderName = SystemProperties.get(ADMIN_TOKEN_PROVIDER);
         if (appTokenProviderName != null) {
@@ -284,31 +299,38 @@ public class AdminTokenAction implements PrivilegedAction<SSOToken> {
             if (AdminUtils.getAdminPassword() != null) {
                 String adminDN = AdminUtils.getAdminDN();
                 String adminPassword = new String(AdminUtils.getAdminPassword());
-                if (!authInitialized && (SystemProperties.isServerMode() ||
-                        SystemProperties.get(AMADMIN_MODE) != null)) {
+                if (!authInitialized && (SystemProperties.isServerMode() || SystemProperties.get(AMADMIN_MODE) != null)) {
                     // Use internal auth context to get the SSOToken
-                    AuthContext ac = new AuthContext(new AuthPrincipal(adminDN),
-                            adminPassword.toCharArray());
+                    AuthContext ac = new AuthContext(new AuthPrincipal(adminDN), adminPassword.toCharArray());
                     internalAppSSOToken = ssoAuthToken = ac.getSSOToken();
+                    debug.error("created internalAppSSOToken:{}, authInitialized: {}, SystemProperties.isServerMode(): {},  SystemProperties.get(AMADMIN_MODE): {}", 
+                    		internalAppSSOToken.getTokenID().toString(), authInitialized, SystemProperties.isServerMode(), SystemProperties.get(AMADMIN_MODE));
                 } else {
                     // Copy the authentication state
-                    boolean authInit = authInitialized;
-                    if (authInit) {
-                        authInitialized = false;
-                    }
-
-                    // Obtain SSOToken using AuthN service
-                    ssoAuthToken = new SystemAppTokenProvider(adminDN, adminPassword).getAppSSOToken();
-
-                    // Restore the authentication state
-                    if (authInit && ssoAuthToken != null) {
-                        authInitialized = true;
+                    final boolean authInit = authInitialized;
+                    while (ssoAuthToken==null) {
+	                    try {
+	                    	 if (authInit) 
+	                    		 authInitialized = false;
+	                         // Obtain SSOToken using AuthN service
+		                    ssoAuthToken = new SystemAppTokenProvider(adminDN, adminPassword).getAppSSOToken();
+	                    } catch (NoClassDefFoundError ne) {
+	                        throw ne;
+	                    } catch (Throwable e) {
+	                    	debug.error("AdminTokenAction::getSSOToken Exception reading from serverconfig.xml", e);
+							if (!authInit)
+								break;
+						}finally {
+							// Restore the authentication state
+		                    if (authInit && ssoAuthToken != null) {
+		                        authInitialized = true;
+		                    }
+						}
                     }
                 }
             }
         } catch (NoClassDefFoundError ne) {
             debug.error("AdminTokenAction::getSSOToken Not found AdminDN and AdminPassword.", ne);
-
         } catch (Throwable t) {
             debug.error("AdminTokenAction::getSSOToken Exception reading from serverconfig.xml", t);
         }

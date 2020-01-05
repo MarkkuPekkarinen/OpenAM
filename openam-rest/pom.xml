@@ -19,9 +19,9 @@
 
     <!-- Parent Project -->
     <parent>
-        <groupId>org.forgerock.openam</groupId>
+        <groupId>org.openidentityplatform.openam</groupId>
         <artifactId>openam</artifactId>
-        <version>14.1.9-SNAPSHOT</version>
+        <version>14.4.3-SNAPSHOT</version>
     </parent>
 
     <!-- Component Definition -->
@@ -64,65 +64,65 @@
             <artifactId>org.restlet.ext.slf4j</artifactId>
         </dependency>
         <dependency>
-            <groupId>org.forgerock.openam</groupId>
+            <groupId>org.openidentityplatform.openam</groupId>
             <artifactId>openam-slf4j</artifactId>
         </dependency>
 
         <!-- OpenAM Shared -->
         <dependency>
-            <groupId>org.forgerock.openam</groupId>
+            <groupId>org.openidentityplatform.openam</groupId>
             <artifactId>openam-shared</artifactId>
         </dependency>
         <dependency>
-            <groupId>org.forgerock.openam</groupId>
+            <groupId>org.openidentityplatform.openam</groupId>
             <artifactId>openam-restlet</artifactId>
         </dependency>
         <dependency>
-            <groupId>org.forgerock.openam</groupId>
+            <groupId>org.openidentityplatform.openam</groupId>
             <artifactId>openam-http</artifactId>
         </dependency>
         <dependency><!-- TODO required until Restlet endpoints are moved to CHF -->
-            <groupId>org.forgerock.http</groupId>
+            <groupId>org.openidentityplatform.http</groupId>
             <artifactId>chf-http-servlet</artifactId>
         </dependency>
 
         <!-- OpenAM core -->
         <dependency>
-            <groupId>org.forgerock.openam</groupId>
+            <groupId>org.openidentityplatform.openam</groupId>
             <artifactId>openam-core</artifactId>
         </dependency>
         <dependency>
-            <groupId>org.forgerock.openam</groupId>
+            <groupId>org.openidentityplatform.openam</groupId>
             <artifactId>openam-audit-configuration</artifactId>
         </dependency>
 
         <!-- Commons -->
         <dependency>
-            <groupId>org.forgerock.commons</groupId>
+            <groupId>org.openidentityplatform.commons</groupId>
             <artifactId>json-resource</artifactId>
         </dependency>
         <dependency>
-            <groupId>org.forgerock.commons</groupId>
+            <groupId>org.openidentityplatform.commons</groupId>
             <artifactId>json-resource-http</artifactId>
         </dependency>
         <dependency>
-            <groupId>org.forgerock.commons</groupId>
+            <groupId>org.openidentityplatform.commons</groupId>
             <artifactId>json-web-token</artifactId>
         </dependency>
         <dependency>
-            <groupId>org.forgerock.commons</groupId>
+            <groupId>org.openidentityplatform.commons</groupId>
             <artifactId>authz-framework</artifactId>
         </dependency>
         <dependency>
-            <groupId>org.forgerock.commons</groupId>
+            <groupId>org.openidentityplatform.commons</groupId>
             <artifactId>forgerock-jaspi-runtime</artifactId>
         </dependency>
         <dependency>
-            <groupId>org.forgerock.commons</groupId>
+            <groupId>org.openidentityplatform.commons</groupId>
             <artifactId>forgerock-jaspi-jwt-session-module</artifactId>
         </dependency>
         <dependency>
-            <groupId>org.forgerock.commons</groupId>
+            <groupId>org.openidentityplatform.commons</groupId>
             <artifactId>forgerock-util</artifactId>
         </dependency>
 
@@ -135,79 +135,67 @@
         <dependency>
             <groupId>org.easytesting</groupId>
             <artifactId>fest-assert</artifactId>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.easymock</groupId>
             <artifactId>easymock</artifactId>
+            <scope>test</scope>
         </dependency>
-        <dependency>
-            <groupId>org.powermock</groupId>
-            <artifactId>powermock-module-junit4</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.powermock</groupId>
-            <artifactId>powermock-api-mockito</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.powermock</groupId>
-            <artifactId>powermock-api-easymock</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.powermock</groupId>
-            <artifactId>powermock-module-testng</artifactId>
-        </dependency>
+         <dependency>
+		  <groupId>org.mockito</groupId>
+		  <artifactId>mockito-all</artifactId>
+		  <scope>test</scope>
+		</dependency>
         <dependency>
             <groupId>httpunit</groupId>
             <artifactId>httpunit</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.powermock</groupId>
-            <artifactId>powermock-module-testng-common</artifactId>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.mortbay.jetty</groupId>
             <artifactId>jetty-servlet-tester</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
-            <groupId>org.forgerock.openam</groupId>
+            <groupId>org.openidentityplatform.openam</groupId>
             <artifactId>openam-coretoken</artifactId>
         </dependency>
-
-        <dependency>
-            <groupId>javax.ws.rs</groupId>
-            <artifactId>jsr311-api</artifactId>
-        </dependency>
-
         <dependency>
             <groupId>org.json</groupId>
             <artifactId>json</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>org.forgerock.commons</groupId>
+            <groupId>org.openidentityplatform.commons</groupId>
             <artifactId>forgerock-guice-test</artifactId>
         </dependency>
         <dependency>
-            <groupId>org.forgerock.commons</groupId>
+            <groupId>org.openidentityplatform.commons</groupId>
             <artifactId>forgerock-test-utils</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>org.forgerock.commons</groupId>
+            <groupId>org.openidentityplatform.commons</groupId>
             <artifactId>json-resource</artifactId>
             <type>test-jar</type>
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>org.forgerock.openam</groupId>
+            <groupId>org.openidentityplatform.openam</groupId>
             <artifactId>openam-core</artifactId>
             <type>test-jar</type>
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>org.forgerock.openam</groupId>
+            <groupId>org.openidentityplatform.openam</groupId>
             <artifactId>openam-notifications-integration</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testng</groupId>
+            <artifactId>testng</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

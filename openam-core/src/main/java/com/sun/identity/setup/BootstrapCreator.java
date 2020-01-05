@@ -37,6 +37,7 @@ import java.security.cert.CertificateException;
 import java.util.Collection;
 import java.util.Iterator;
 
+import org.apache.commons.lang.StringUtils;
 import org.forgerock.openam.keystore.KeyStoreConfig;
 import org.forgerock.openam.setup.BootstrapConfig;
 import org.forgerock.openam.setup.ConfigStoreProperties;
@@ -106,7 +107,7 @@ public class BootstrapCreator {
         if (!AMSetupServlet.isCurrentConfigurationValid()) {
             return; // dont try to save bootstrap if we are not in a valid state
         }
-
+       
         try {
             final String baseDir = SystemProperties.get(SystemProperties.CONFIG_PATH);
             final BootstrapConfig bootConfig = getBootstrapConfig(dsCfg);
@@ -122,13 +123,24 @@ public class BootstrapCreator {
             if (doMigrate) { // start migration of legacy bootstrap
                 migrateBootstrap(ksc);
             }
-            final AMKeyProvider amKeyProvider = new AMKeyProvider(ksc);
-
             // write the required boot passwords to the keystore
-            amKeyProvider.setSecretKeyEntry(BootstrapData.DSAME_PWD_KEY, dspw);
-            amKeyProvider.setSecretKeyEntry(BootstrapData.CONFIG_PWD_KEY, configStorepw);
-            amKeyProvider.store();
-
+        	final AMKeyProvider amKeyProvider = new AMKeyProvider(ksc);
+        	try {
+	        	if (!StringUtils.equals(dspw,amKeyProvider.getSecret(BootstrapData.DSAME_PWD_KEY)) || !StringUtils.equals(configStorepw,amKeyProvider.getSecret(BootstrapData.CONFIG_PWD_KEY))) {
+	        		throw new KeyStoreException("need rewrite keys");
+	        	}
+        	}catch (KeyStoreException ke) {
+        		try {
+        			amKeyProvider.setSecretKeyEntry(BootstrapData.DSAME_PWD_KEY, dspw);
+        			amKeyProvider.setSecretKeyEntry(BootstrapData.CONFIG_PWD_KEY, configStorepw);
+                  	amKeyProvider.store();
+                  }catch (Exception e) {
+      				DEBUG.warning("save {} {}",BootstrapData.CONFIG_PWD_KEY, e.toString());
+      			}
+			}
+        	if (SystemProperties.get("org.forgerock.donotupgrade")!=null && new File(baseDir + "/boot.json").exists())
+            	return;
+        	
             bootConfig.writeConfig(baseDir + "/boot.json");
             // We delay deletion of legacy bootstrap until the very end.
             // If there are exceptions, this will leave the bootstrap in place
@@ -137,7 +149,7 @@ public class BootstrapCreator {
                 bootstrap.delete();
             }
 
-        } catch (IOException | KeyStoreException | NoSuchAlgorithmException | CertificateException e) {
+        } catch (IOException | KeyStoreException  e) {
             throw new ConfigurationException(e.getMessage());
         }
     }

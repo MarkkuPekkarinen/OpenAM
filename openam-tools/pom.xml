@@ -19,9 +19,9 @@
 
     <!-- Parent Project -->
     <parent>
-        <groupId>org.forgerock.openam</groupId>
+        <groupId>org.openidentityplatform.openam</groupId>
         <artifactId>openam</artifactId>
-        <version>14.1.9-SNAPSHOT</version>
+        <version>14.4.3-SNAPSHOT</version>
     </parent>
 
     <!-- Component Definition -->
@@ -46,7 +46,7 @@
     <build>
     		<plugins>
     			<plugin>
-				<groupId>com.savage7.maven.plugins</groupId>
+				<groupId>org.openidentityplatform.commons</groupId>
 				<artifactId>maven-external-dependency-plugin</artifactId>
 				<version>0.6-SNAPSHOT</version>
 				<inherited>false</inherited>
@@ -59,13 +59,11 @@
 					<force>true</force>
 					<artifactItems>
 						<artifactItem>
-							<groupId>org.forgerock</groupId>
+							<groupId>org.openidentityplatform</groupId>
 			                <artifactId>cddl-license</artifactId>
 			                <version>1.0.0</version>
 			                <packaging>txt</packaging>
-							<downloadUrl>
-								https://repository.jboss.org/licenses/cddl.txt
-                        		</downloadUrl>
+							<downloadUrl>https://oss.oracle.com/licenses/CDDL-1.1</downloadUrl>
                         	</artifactItem>
  					</artifactItems>
 				</configuration>
@@ -85,13 +83,13 @@
 							<goal>install-external</goal>
 						</goals>
 					</execution>
-					<execution>
-						<id>deploy-external-dependencies</id>
-						<phase>deploy</phase>
-						<goals>
-							<goal>deploy-external</goal>
-						</goals>
-					</execution>
+<!-- 					<execution> -->
+<!-- 						<id>deploy-external-dependencies</id> -->
+<!-- 						<phase>deploy</phase> -->
+<!-- 						<goals> -->
+<!-- 							<goal>deploy-external</goal> -->
+<!-- 						</goals> -->
+<!-- 					</execution> -->
 				</executions>
 			</plugin>
     		</plugins>

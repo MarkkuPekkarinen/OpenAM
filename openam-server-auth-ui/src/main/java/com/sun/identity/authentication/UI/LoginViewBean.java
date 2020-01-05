@@ -64,6 +64,7 @@ import com.iplanet.sso.SSOException;
 import com.iplanet.sso.SSOToken;
 import com.iplanet.sso.SSOTokenManager;
 import com.sun.identity.authentication.AuthContext;
+import com.sun.identity.authentication.callbacks.HiddenValueCallback;
 import com.sun.identity.authentication.client.AuthClientUtils;
 import com.sun.identity.authentication.server.AuthContextLocal;
 import com.sun.identity.authentication.service.AMAuthErrorCode;
@@ -502,6 +503,10 @@ public class LoginViewBean extends AuthViewBeanBase {
                 }
             }
         } catch (Exception e) {
+        	
+        	if (loginDebug.messageEnabled()) {
+                loginDebug.error("Error ocurred: ", e);
+        	}
             ISLocaleContext localeContext = new ISLocaleContext();
             localeContext.setLocale(request);
             fallbackLocale = localeContext.getLocale();
@@ -1310,6 +1315,13 @@ public class LoginViewBean extends AuthViewBeanBase {
                     clearCookie(rc.getRedirectBackUrlCookieName());
                     loginDebug.message("Redirect callback : set status");                        
                     rc.setStatus(status);
+                } else if (callbacks[i] instanceof HiddenValueCallback) {
+                	HiddenValueCallback hvc = (HiddenValueCallback) callbacks[i];
+                    tmp = (String)reqDataHash.get(hvc.getId());
+                    if ((bAuthLevel) || (tmp==null)) {
+                        tmp = "";
+                    }
+                    hvc.setValue(tmp.trim());
                 }
             }
             

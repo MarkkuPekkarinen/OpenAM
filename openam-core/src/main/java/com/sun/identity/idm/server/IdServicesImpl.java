@@ -1083,21 +1083,36 @@ public class IdServicesImpl implements IdServices {
        }
 
        // Iterate through other plugins
-       Iterator it = configuredPluginClasses.iterator();
+       Exception lastException=null;
+       final Iterator it = configuredPluginClasses.iterator();
        boolean exists = false;
-       try {
-           while (it.hasNext()) {
-               IdRepo idRepo = (IdRepo) it.next();
-               exists = idRepo.isExists(token, type, name);
-               if (exists) {
-                   break;
+       while (it.hasNext()) {
+           final IdRepo idRepo = (IdRepo) it.next();
+           try {
+        	   exists = idRepo.isExists(token, type, name);
+        	   if (exists) 
+            	   return exists;
+               lastException=null; //has good repo
+           } catch (IdRepoFatalException idf) {
+               // fatal ..throw it all the way up
+               DEBUG.error("IdServicesImpl.isExists: Fatal Exception ", idf);
+               throw idf;
+           } catch (IdRepoException ide) {
+               if (idRepo != null && DEBUG.warningEnabled()) {
+                   DEBUG.warning("IdServicesImpl.isExists: "
+                       + "Unable to check isActive identity in the "
+                       + "following repository "
+                       + idRepo.getClass().getName() + " :: "
+                       + ide.getMessage());
                }
+               lastException = ide;
            }
-       } catch (Exception idm) {
-           // Ignore the exception if not found in one plugin.
-           // Iterate through all configured plugins and look for the
-           // identity and if found break the loop, if not finally return
-           // false.
+       }
+
+       if (lastException!=null) {
+    	   if  (lastException instanceof IdRepoException)
+    		   throw (IdRepoException)lastException;
+    	   throw (SSOException)lastException;
        }
        return exists;
    }

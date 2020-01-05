@@ -705,16 +705,16 @@ public class UtilProxySAMLAuthenticator extends SAMLBase implements SAMLAuthenti
         StringBuffer newURL;
 
         // build newUrl to auth service and test if redirect or forward
-        if (FSUtils.isSameContainer(request, authService)) {
-            forward = true;
-            String relativePath = getRelativePath(authService, appliRootUrl.toString());
-            // in this case continue to forward to SSORedirect after login
-            newURL = new StringBuffer(relativePath).append("&forward=true");
-        } else {
+//        if (FSUtils.isSameContainer(request, authService)) {
+//            forward = true;
+//            String relativePath = getRelativePath(authService, appliRootUrl.toString());
+//            // in this case continue to forward to SSORedirect after login
+//            newURL = new StringBuffer(relativePath).append("&forward=true");
+//        } else {
             // cannot forward so redirect
             forward = false;
             newURL = new StringBuffer(authService);
-        }
+//        }
 
         // Pass spEntityID to IdP Auth Module
         if (data.getSpEntityID() != null) {
@@ -774,7 +774,8 @@ public class UtilProxySAMLAuthenticator extends SAMLBase implements SAMLAuthenti
         // of redirection, forward needs a relative URI.
         StringBuffer gotoURL;
         if (forward) {
-            gotoURL = new StringBuffer(getRelativePath(request.getRequestURI(), request.getContextPath()));
+            //gotoURL = new StringBuffer(getRelativePath(request.getRequestURI(), request.getContextPath()));
+        	gotoURL = new StringBuffer(request.getRequestURI());
         } else {
             String rpUrl = IDPSSOUtil.getAttributeValueFromIDPSSOConfig(data.getRealm(),
                     data.getIdpEntityID(), SAML2Constants.RP_URL);
@@ -804,7 +805,7 @@ public class UtilProxySAMLAuthenticator extends SAMLBase implements SAMLAuthenti
             newURL.append('&').append(SystemPropertiesManager.get(Constants.AM_AUTH_COOKIE_NAME, "AMAuthCookie"));
             newURL.append('=');
 
-            SAML2Utils.debug.message("{} Forward to ", classMethod, newURL.toString());
+            SAML2Utils.debug.message("{} Forward to {}", classMethod, newURL.toString());
             try {
                 request.setAttribute(Constants.FORWARD_PARAM, Constants.FORWARD_YES_VALUE);
                 request.getRequestDispatcher(newURL.toString()).forward(request, response);

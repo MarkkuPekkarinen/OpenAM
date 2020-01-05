@@ -11,7 +11,12 @@
  * Header, with the fields enclosed by brackets [] replaced by your own identifying
  * information: "Portions copyright [year] [name of copyright owner]".
  *
+<<<<<<< HEAD
  * Copyright 2013-2016 ForgeRock AS.
+=======
+ * Copyright 2013-2015 ForgeRock AS.
+ * Portions copyright 2019 Open Source Solution Technology Corporation
+>>>>>>> cafd23ed69... Remove an input parameter included in exception message (#123)
  */
 
 package org.forgerock.openam.core.rest.authn;
@@ -116,8 +121,9 @@ public class RestAuthenticationHandler {
      * @return The Response of the authentication request.
      */
     public JsonValue continueAuthentication(HttpServletRequest request, HttpServletResponse response,
-            JsonValue postBody, String sessionUpgradeSSOTokenId) throws RestAuthException {
-        return authenticate(request, response, postBody, null, null, sessionUpgradeSSOTokenId);
+    		 JsonValue postBody, String authIndexType, 
+    		 String indexValue, String sessionUpgradeSSOTokenId) throws RestAuthException {
+        return authenticate(request, response, postBody, authIndexType, indexValue, sessionUpgradeSSOTokenId);
     }
 
     /**
@@ -347,6 +353,7 @@ public class RestAuthenticationHandler {
             String state = pagePropertiesCallback.getPageState();
             jsonResponseObject.put("stage", moduleName + state);
             jsonResponseObject.put("header", pagePropertiesCallback.getHeader());
+            jsonResponseObject.put("infoText", pagePropertiesCallback.getInfoText());
         }
         jsonResponseObject.put("callbacks", jsonCallbacks.getObject());
 
@@ -365,8 +372,7 @@ public class RestAuthenticationHandler {
             return AuthIndexType.getAuthIndexType(authIndexType);
         } catch (IllegalArgumentException e) {
             DEBUG.message("Unknown Authentication Index Type, " + authIndexType);
-            throw new RestAuthException(ResourceException.BAD_REQUEST, "Unknown Authentication Index Type, "
-                    + authIndexType);
+            throw new RestAuthException(ResourceException.BAD_REQUEST, "Unknown Authentication Index Type");
         }
     }
 }
