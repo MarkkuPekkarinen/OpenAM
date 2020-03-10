@@ -31,14 +31,13 @@
         <format>zip</format>
     </formats>
     <includeBaseDirectory>false</includeBaseDirectory>
-
-    <dependencySets>
-        <dependencySet>
-            <outputFileNameMapping>${artifact.artifactId}-${artifact.baseVersion}${dashClassifier?}.${artifact.extension}</outputFileNameMapping>
-            <outputDirectory>lib</outputDirectory>
-            <includes>
+	<repositories>
+		<repository>
+			<outputDirectory>lib</outputDirectory>
+			<includeMetadata>false</includeMetadata>
+			<includes>
                 <include>com.google.inject:guice:jar:no_aop</include>
-                <include>org.openidentityplatform.commons:forgerock-guice-core</include>
+                <include>org.openidentityplatform.commons.guice:core</include>
                 <include>org.openidentityplatform.openam:openam-license-manager-cli</include>
                 <include>org.apache.servicemix.bundles:org.apache.servicemix.bundles.javax-inject</include>
                 <include>org.slf4j:slf4j-api</include>
@@ -48,7 +47,9 @@
                 <include>org.openidentityplatform.openam:openam-license-core</include>
                 <include>org.openidentityplatform.openam:openam-installer-utils</include>
             </includes>
-        </dependencySet>
+		</repository>
+	</repositories>
+    <dependencySets>
         <dependencySet>
             <outputDirectory></outputDirectory>
             <includes>

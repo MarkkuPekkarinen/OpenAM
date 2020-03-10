@@ -1,4 +1,4 @@
-/**
+/*
  * The contents of this file are subject to the terms of the Common Development and
  * Distribution License (the License). You may not use this file except in compliance with the
  * License.
@@ -11,22 +11,35 @@
  * Header, with the fields enclosed by brackets [] replaced by your own identifying
  * information: "Portions copyright [year] [name of copyright owner]".
  *
- * Copyright 2016 ForgeRock AS.
+ * Copyright 2019 Open Identity Platform Community.
  */
 
-/**
- * @module org/forgerock/openam/ui/admin/services/global/UsersService
- */
 
-import AbstractDelegate from "org/forgerock/commons/ui/common/main/AbstractDelegate";
-import Constants from "org/forgerock/commons/ui/common/util/Constants";
-import fetchUrl from "org/forgerock/openam/ui/common/services/fetchUrl";
 
-const obj = new AbstractDelegate(`${Constants.host}/${Constants.context}/json`);
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
+import org.junit.Test;
 
-export function getByIdStartsWith (id, realm) {
-    return obj.serviceCall({
-        url: fetchUrl(`/users?_queryId=${id}*`, { realm: !!realm ? realm : false }),
-        headers: { "Accept-API-Version": "protocol=1.0,resource=1.0" }
-    }).then((response) => response.result);
+import com.iplanet.sso.SSOException;
+import com.sun.identity.idm.IdRepoException;
+
+import org.openidentityplatform.openam.cassandra.embedded.Server;
+
+public class ServerTest {
+
+	static Server cassandra;
+	
+	@BeforeClass
+	public static void init() throws SSOException, IdRepoException{
+	}
+	
+	@AfterClass
+	public static void destory() throws SSOException, IdRepoException{
+	}
+	
+	@Test
+	public void start_test() throws SSOException, IdRepoException{
+		cassandra=new Server();
+		cassandra.run();
+	}
 }
