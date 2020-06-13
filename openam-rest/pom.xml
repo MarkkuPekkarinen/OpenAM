@@ -21,7 +21,7 @@
     <parent>
         <groupId>org.openidentityplatform.openam</groupId>
         <artifactId>openam</artifactId>
-        <version>14.4.3-SNAPSHOT</version>
+        <version>14.5.2-SNAPSHOT</version>
     </parent>
 
     <!-- Component Definition -->
@@ -33,7 +33,7 @@
 	<repositories>
 	     <repository>
         		<id>mvnrepository.com</id>
-        		<url>https://repo.boundlessgeo.com/main</url>
+        		<url>https://repo.spring.io/libs-milestone</url>
         </repository>
 	</repositories>
     <dependencies>

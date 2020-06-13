@@ -20,7 +20,7 @@
     <parent>
         <groupId>org.openidentityplatform.openam</groupId>
         <artifactId>openam-soap-sts</artifactId>
-        <version>14.4.3-SNAPSHOT</version>
+        <version>14.5.2-SNAPSHOT</version>
     </parent>
 
     <name>OpenAM SOAP STS Server</name>
@@ -107,10 +107,6 @@
             <groupId>org.apache.cxf.services.sts</groupId>
             <artifactId>cxf-services-sts-core</artifactId>
             <version>${cxf.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.santuario</groupId>
-            <artifactId>xmlsec</artifactId>
         </dependency>
         <!--
             the cxf-rt-transports depends on cxf-rt-transports-jetty, which depends on slf4j-api(1.6.2). In some cases,

@@ -18,6 +18,7 @@ package org.forgerock.openam.sts.tokengeneration.oidc;
 
 import static org.forgerock.openam.utils.Time.*;
 
+import com.iplanet.services.util.Crypt;
 import com.iplanet.sso.SSOException;
 import com.iplanet.sso.SSOToken;
 import com.sun.identity.shared.DateUtils;
@@ -173,7 +174,8 @@ public class OpenIdConnectTokenGenerationImpl implements OpenIdConnectTokenGener
 		        openIdConnectToken.put("auth:module", subjectToken.getProperty("AuthType", true));
 		        openIdConnectToken.put("auth:level", subjectToken.getProperty("AuthLevel", true));
 		        openIdConnectToken.put("auth:time:max:idle", currentTimeMillis()/1000+subjectToken.getMaxIdleTime()*60);
-		        openIdConnectToken.put("auth:time:max", currentTimeMillis()/1000+subjectToken.getTimeLeft()*60);
+		        openIdConnectToken.put("auth:time:max", currentTimeMillis()/1000+subjectToken.getTimeLeft());
+		        openIdConnectToken.put("auth:token:encrypt", Crypt.encrypt(subjectToken.getTokenID().toString()));
 	        }catch (SSOException e) {
 				throw new TokenCreationException(1,"token expired",e);
 			}
@@ -187,11 +189,13 @@ public class OpenIdConnectTokenGenerationImpl implements OpenIdConnectTokenGener
             Map<String, String> mappedClaims =
                     openIdConnectTokenClaimMapperProvider.getClaimMapper(tokenConfig).getCustomClaims(subjectToken, tokenConfig.getClaimMap());
             //processing to log a warning if any of the values corresponding to the custom clams will over-write an existing claim
-            for (String key : mappedClaims.keySet()) {
-                if (openIdConnectToken.isDefined(key)) {
-                    logger.warn("In generating an OpenIdConnect token, the claim map for claim " + key +
-                            " will over-write an existing claim.");
-                }
+            if (logger.isDebugEnabled()) {
+	            for (String key : mappedClaims.keySet()) {
+	                if (openIdConnectToken.isDefined(key)) {
+	                    logger.debug("In generating an OpenIdConnect token, the claim map for claim " + key +
+	                            " will over-write an existing claim.");
+	                }
+	            }
             }
             openIdConnectToken.setClaims(mappedClaims);
         }
