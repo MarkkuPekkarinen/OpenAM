@@ -57,12 +57,18 @@ public class DefaultOpenIdConnectTokenClaimMapper implements OpenIdConnectTokenC
              */
             Map<String, String> adjustedMap = new HashMap<>(joinedMappings.size());
             for (Map.Entry<String, String> claimMapEntry : claimMap.entrySet()) {
-                if (!StringUtils.isEmpty(joinedMappings.get(claimMapEntry.getValue()))) 
-                    adjustedMap.put(claimMapEntry.getKey(), joinedMappings.get(claimMapEntry.getValue()));
+            	if (claimMapEntry.getValue().isEmpty() || "null".equals(claimMapEntry.getValue())) 
+            		adjustedMap.put(claimMapEntry.getKey(),null);
+            	else if (claimMapEntry.getValue().matches("\"(.*)\"")) 
+            		adjustedMap.put(claimMapEntry.getKey(),claimMapEntry.getValue().replaceAll("\"(.*)\"", "$1"));
+            	else if (!StringUtils.isEmpty(joinedMappings.get(claimMapEntry.getValue()))) 
+            		adjustedMap.put(claimMapEntry.getKey(), joinedMappings.get(claimMapEntry.getValue()));
                 else 
                 	adjustedMap.put(claimMapEntry.getKey(), token.getProperty(claimMapEntry.getValue(),true));
             }
-            adjustedMap.put("status", ""+(amIdentity.isExists()?amIdentity.isActive():true)); //add status to token
+            if (!adjustedMap.containsKey("status")) {
+            	adjustedMap.put("status", ""+(amIdentity.isExists()?amIdentity.isActive():true)); //add status to token
+            }
             return adjustedMap;
         } catch (IdRepoException | SSOException e) {
             throw new TokenCreationException(ResourceException.INTERNAL_ERROR,

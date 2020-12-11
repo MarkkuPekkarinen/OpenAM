@@ -21,7 +21,7 @@
   <name>OpenAM Project</name>
   <groupId>org.openidentityplatform.openam</groupId>
   <artifactId>openam</artifactId>
-  <version>14.5.5-SNAPSHOT</version>
+  <version>14.6.1-SNAPSHOT</version>
   <packaging>pom</packaging>
   <description>OpenAM</description>
   <inceptionYear>2010</inceptionYear>
@@ -1222,11 +1222,11 @@
         <artifactId>jdom</artifactId>
         <version>${jdom.version}</version>
       </dependency>
-		<dependency>
-		    <groupId>org.glassfish.jersey.bundles</groupId>
-		    <artifactId>jaxrs-ri</artifactId>
-		    <version>2.28</version>
-		</dependency>
+	<dependency>
+	    <groupId>org.glassfish.jersey.bundles</groupId>
+	    <artifactId>jaxrs-ri</artifactId>
+	    <version>2.32</version>
+	</dependency>
       <dependency>
         <groupId>org.openidentityplatform.external.com.iplanet.jato</groupId>
         <artifactId>jato</artifactId>
