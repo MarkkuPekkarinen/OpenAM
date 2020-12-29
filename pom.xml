@@ -277,7 +277,7 @@
         <!-- Disable Doclint on JDK8+ -->
         <javadoc.opts>-Xdoclint:none</javadoc.opts>
         <!-- Surefire Argument Line -->
-        <java.surefire.options>-Xms256m -Xmx256m</java.surefire.options>
+        <java.surefire.options>-Xmx1g</java.surefire.options>
         <!-- JavaDoc Setting Properties -->
         <javadoc.options>-J-Xms2g -J-Xmx2g</javadoc.options>
       </properties>
@@ -2032,7 +2032,7 @@
 			    </execution>
 			  </executions>
 			  <configuration>
-			  	<failOnError>false</failOnError>
+			  	<doclint>none</doclint>
 			  </configuration>
 			</plugin>
       <plugin>
@@ -2178,12 +2178,6 @@
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-clean-plugin</artifactId>
 				<version>3.1.0</version>
-			</plugin>
-
-			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-javadoc-plugin</artifactId>
-				<version>3.1.1</version>
 			</plugin>
 
 			<plugin>
