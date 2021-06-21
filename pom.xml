@@ -21,7 +21,7 @@
   <name>OpenAM Project</name>
   <groupId>org.openidentityplatform.openam</groupId>
   <artifactId>openam</artifactId>
-  <version>14.6.3-SNAPSHOT</version>
+  <version>14.6.4-SNAPSHOT</version>
   <packaging>pom</packaging>
   <description>OpenAM</description>
   <inceptionYear>2010</inceptionYear>
@@ -457,7 +457,7 @@
 	   <dependency>
     	<groupId>org.openidentityplatform.opendj</groupId>
 		<artifactId>opendj-parent</artifactId>
-		<version>4.4.11-SNAPSHOT</version>
+		<version>4.4.11</version>
     	<type>pom</type>
     	<scope>import</scope>
       </dependency>
