@@ -1782,8 +1782,13 @@
 		 <dependency>
   			<groupId>io.netty</groupId>
   			<artifactId>netty-handler</artifactId>
-  			<version>4.1.69.Final</version>
+  			<version>4.1.70.Final</version>
   		</dependency>
+        <dependency>
+            <groupId>com.github.jnr</groupId>
+            <artifactId>jnr-posix</artifactId>
+            <version>3.1.11</version>
+        </dependency>
     </dependencies>
   </dependencyManagement>
   <dependencies>
