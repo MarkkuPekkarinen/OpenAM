@@ -121,7 +121,7 @@
     <java-ipv6.version>0.17</java-ipv6.version>
     <json.version>20090211</json.version>
     <hikaricp.version>2.4.1</hikaricp.version>
-    <h2database.version>1.4.188</h2database.version>
+    <h2database.version>2.0.202</h2database.version>
     <activemq.version>[5.15.9,)</activemq.version>
     <javax.inject.version>1_2</javax.inject.version>
     <jetty.jspc.version>9.4.0.M0</jetty.jspc.version>
@@ -1760,11 +1760,6 @@
 		    <version>0.14.0</version>
 		</dependency>
 		<dependency>
-		    <groupId>org.hibernate</groupId>
-		    <artifactId>hibernate-validator</artifactId>
-		    <version>5.4.3.Final</version>
-		</dependency>
-		<dependency>
    			<groupId>com.fasterxml.woodstox</groupId>
    			<artifactId>woodstox-core</artifactId>
    			<version>5.3.0</version>
@@ -1782,7 +1777,7 @@
 		 <dependency>
   			<groupId>io.netty</groupId>
   			<artifactId>netty-handler</artifactId>
-  			<version>4.1.70.Final</version>
+  			<version>4.1.72.Final</version>
   		</dependency>
         <dependency>
             <groupId>com.github.jnr</groupId>
