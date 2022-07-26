@@ -54,6 +54,7 @@ import com.datastax.oss.driver.api.core.cql.ResultSet;
 import com.datastax.oss.driver.api.core.cql.Row;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
+import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.iplanet.am.util.SystemProperties;
 import com.iplanet.sso.SSOException;
 import com.iplanet.sso.SSOToken;
@@ -449,21 +450,33 @@ public class Repo extends IdRepo {
              CrestQuery crestQuery, int maxTime, int maxResults,
              Set<String> returnAttrs, boolean returnAllAttrs, int filterOp,
              Map<String, Set<String>> avPairs, boolean recursive) throws SSOException, IdRepoException {
-		if (crestQuery.hasQueryId()) 
-			return search(token, type, crestQuery.getQueryId(), maxTime, maxResults, returnAttrs,returnAllAttrs, filterOp, avPairs, recursive);
-	     throw new IdRepoException("FilesRepo.search does not support queryFilter searches");
+		if (!crestQuery.hasQueryId() && !crestQuery.hasQueryFilter()) {
+			throw new IdRepoException("CassandraRepo.search does not support an empty search");
+		}
+		if(crestQuery.hasQueryFilter()) {
+			if(avPairs == null) {
+				avPairs = new HashMap<>();
+			}
+			Map<String, Set<String>> filter = crestQuery.getQueryFilter().accept(new CassandraQueryFilterVisitor(), null);
+			avPairs.putAll(filter);
+		}
+		return search(token, type, crestQuery.getQueryId(), maxTime, maxResults, returnAttrs,returnAllAttrs, filterOp, avPairs, recursive);
+	}
+	
+	final String getIndexName(String field) {
+		final String table="ix_".concat(field.toLowerCase()).replaceAll("-", "_");
+		return table;
 	}
 	
 	final Cache<String, PreparedStatement> indexByValue=CacheBuilder.newBuilder()
 			.maximumSize(2048)
 			.expireAfterAccess(5,TimeUnit.MINUTES)
 			.build();
-	PreparedStatement getIndexByValue(String field) throws ExecutionException {
-		final String table="ix_".concat(field.toLowerCase()).replaceAll("-", "_");
+	final PreparedStatement getIndexByValue(String field) throws ExecutionException {
+		final String table=getIndexName(field);
 		return indexByValue.get(table,new Callable<PreparedStatement>() {
 			@Override
 			public PreparedStatement call() throws Exception {
-				// TODO Auto-generated method stub
 				return session.prepare("select uid,field,value from "+table+" where type=:type and field=:field and value in :values limit 64000");
 			}
 		});
@@ -473,8 +486,8 @@ public class Repo extends IdRepo {
 			.maximumSize(2048)
 			.expireAfterAccess(5,TimeUnit.MINUTES)
 			.build();
-	PreparedStatement getIndexByValueAndUID(String field) throws ExecutionException {
-		final String table="ix_".concat(field.toLowerCase()).replaceAll("-", "_");
+	final PreparedStatement getIndexByValueAndUID(String field) throws ExecutionException {
+		final String table=getIndexName(field);
 		return indexByValueAndUID.get(table,new Callable<PreparedStatement>() {
 			@Override
 			public PreparedStatement call() throws Exception {
@@ -495,7 +508,7 @@ public class Repo extends IdRepo {
 				}
 			}
 			//avPairs
-			final Map<String, Set<String>> filterFields=new TreeMap<String, Set<String>>(String.CASE_INSENSITIVE_ORDER); 
+			final Map<String, Set<String>> filterFields= new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
 			if (avPairs!=null) {
 				for (final Entry<String, Set<String>> filterEntry: avPairs.entrySet()) {
 					filterFields.put(filterEntry.getKey().toLowerCase(), filterEntry.getValue());
@@ -503,7 +516,7 @@ public class Repo extends IdRepo {
 			}
 
 			
-			Map<String, Map<String,Set<String>>> result=new HashMap<String, Map<String,Set<String>>>();
+			Map<String, Map<String,Set<String>>> result= new HashMap<>();
 			
 			//search by pattern/username without filter
 			if  (filterFields.isEmpty()) {
@@ -529,50 +542,56 @@ public class Repo extends IdRepo {
 					final String uid=row.getString("uid");
 					Map<String, Set<String>> attr=result.get(uid);
 					if (attr==null) {
-						attr=new TreeMap<String, Set<String>>(String.CASE_INSENSITIVE_ORDER);
+						attr= new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
 						result.put(uid,attr);
 					}
 					final String field=row.getString("field");
 					Set<String> values=attr.get(field);
 					if (values==null) {
-						values=new LinkedHashSet<String>(1);
+						values= new LinkedHashSet<>(1);
 						attr.put(field, values);
 					}
 					values.add(row.getString("value"));
 				}
 			}else{ //search by filters
 				for (final Entry<String, Set<String>> filterEntry : filterFields.entrySet()){
-					final Map<String, Map<String,Set<String>>> users2attr=new HashMap<String, Map<String,Set<String>>>();
-					final Set<String> valuesLowerCase=new LinkedHashSet<String>(filterEntry.getValue().size());
+					final Map<String, Map<String,Set<String>>> users2attr= new HashMap<>();
+					final Set<String> valuesLowerCase= new LinkedHashSet<>(filterEntry.getValue().size());
 					if (disableCaseSensitive.contains(filterEntry.getKey())) {
 						for (String string : filterEntry.getValue()) {
 							valuesLowerCase.add(string.toLowerCase());
 						}
 					}
-					BoundStatement statement=(StringUtils.equals(filterUID, "*")?getIndexByValue(filterEntry.getKey()):getIndexByValueAndUID(filterEntry.getKey())).bind()
-						.setString("type", type.getName())
-						.setString("field", filterEntry.getKey().toLowerCase())
-						.setList("values",new ArrayList<String>(disableCaseSensitive.contains(filterEntry.getKey())?valuesLowerCase:filterEntry.getValue()),String.class);
-					if (!StringUtils.equals(filterUID, "*")) {
-						statement=statement.setString("uid", disableCaseSensitive.contains("uid")?filterUID.toLowerCase():filterUID);
-					}
-					final ResultSet rc=new ExecuteCallback(profile,session,statement).execute();
-					for (Row row : rc){
-						final String uid=row.getString("uid");
-						Map<String, Set<String>> attr=users2attr.get(uid);
-						if (attr==null) {
-							attr=new TreeMap<String, Set<String>>(String.CASE_INSENSITIVE_ORDER);
-							users2attr.put(uid,attr);
+          try {
+            BoundStatement statement=((StringUtils.equals(filterUID, "*") || filterUID == null)
+                ? getIndexByValue(filterEntry.getKey())
+                : getIndexByValueAndUID(filterEntry.getKey())).bind()
+                  .setString("type", type.getName())
+                  .setString("field", filterEntry.getKey().toLowerCase())
+                  .setList("values", new ArrayList<>(
+                      disableCaseSensitive.contains(filterEntry.getKey()) ? valuesLowerCase : filterEntry.getValue()),String.class);
+            if (!StringUtils.equals(filterUID, "*") && filterUID != null) {
+              statement=statement.setString("uid", disableCaseSensitive.contains("uid")?filterUID.toLowerCase():filterUID);
+            }
+            final ResultSet rc=new ExecuteCallback(profile,session,statement).execute();
+            for (Row row : rc){
+              final String uid=row.getString("uid");
+              Map<String, Set<String>> attr=users2attr.get(uid);
+              if (attr==null) {
+                attr= new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+                users2attr.put(uid,attr);
+							}
+							final String field=row.getString("field");
+							Set<String> values=attr.get(field);
+							if (values==null) {
+								values=new LinkedHashSet<String>(1);
+								attr.put(field, values);
+							}
+							values.add(row.getString("value"));
 						}
-						final String field=row.getString("field");
-						Set<String> values=attr.get(field);
-						if (values==null) {
-							values=new LinkedHashSet<String>(1);
-							attr.put(field, values);
-						}
-						values.add(row.getString("value"));
+					}catch(UncheckedExecutionException e) {
+						logger.debug("unknown index {}: {} {}",session.getKeyspace().get(),filterEntry.getKey(),e.getCause().toString());
 					}
-
 					//join result
 					if (result.isEmpty()) {
 						result=users2attr;
@@ -605,7 +624,8 @@ public class Repo extends IdRepo {
 			}
 			return new RepoSearchResults(result.keySet(),(maxResults>0&&result.size()>maxResults)?RepoSearchResults.SIZE_LIMIT_EXCEEDED:RepoSearchResults.SUCCESS,result,type);
 		}catch(Throwable e){
-			logger.error("search {} {} {} {} {} {} {} {} {}",type,pattern,maxTime,maxResults,returnAttrs,returnAllAttrs,filterOp,avPairs,recursive,e.getMessage());
+			logger.error("search {} {} {} {} {} {} {} {} {}: {}",type,pattern,maxTime,maxResults,returnAttrs,returnAllAttrs,filterOp,avPairs,recursive,logger.isDebugEnabled()?e:e.getMessage());
+			e.printStackTrace();
 			throw new IdRepoException(e.getMessage());
 		}
 	}
