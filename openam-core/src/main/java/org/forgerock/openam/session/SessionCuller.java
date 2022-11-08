@@ -26,6 +26,7 @@ import com.iplanet.am.util.SystemProperties;
 import com.iplanet.am.util.ThreadPoolException;
 import com.iplanet.dpro.session.Session;
 import com.iplanet.dpro.session.SessionException;
+import com.iplanet.dpro.session.service.InternalSession;
 import com.sun.identity.common.GeneralTaskRunnable;
 import com.sun.identity.common.SystemTimerPool;
 import com.sun.identity.session.util.RestrictedTokenAction;
@@ -98,7 +99,7 @@ public class SessionCuller extends GeneralTaskRunnable {
             }
             rescheduleIfWillTimeOutBeforeExecution(timeoutTime);
         } else {
-            if ((sessionPollerPool.isSessionCleanupEnabled()) && (willExpire(session.getMaxIdleTime())||willExpire(session.getMaxSessionTime()))) {
+            if ((sessionPollerPool.isSessionCleanupEnabled()) && (willExpire(session.getMaxSessionTime()))) {
                 long timeoutTime = (session.getLatestRefreshTime() + (Math.min(session.getMaxIdleTime(),session.getMaxSessionTime()) * 60)) * 1000;
                 rescheduleIfWillTimeOutBeforeExecution(timeoutTime>System.currentTimeMillis()?timeoutTime:System.currentTimeMillis()+1000);
             }
@@ -117,8 +118,8 @@ public class SessionCuller extends GeneralTaskRunnable {
     /**
      * Returns true if the provided time is less than Long.MAX_VALUE seconds.
      */
-    private boolean willExpire(long minutes) {
-        return minutes < Long.MAX_VALUE / 60;
+    boolean willExpire(long minutes) {
+        return minutes < InternalSession.NON_EXPIRING_SESSION_LENGTH_MINUTES;
     }
 
     /**
@@ -183,7 +184,7 @@ public class SessionCuller extends GeneralTaskRunnable {
         } else {
             // schedule at the max session time
             long expectedTime = -1;
-            if (willExpire(session.getMaxIdleTime())||willExpire(session.getMaxSessionTime())) {
+            if (willExpire(session.getMaxSessionTime())) {
                 expectedTime = (session.getLatestRefreshTime() + (Math.min(session.getMaxIdleTime(),session.getMaxSessionTime()) * 60)) * 1000;
             }
             if (expectedTime>System.currentTimeMillis() && expectedTime > scheduledExecutionTime()) {
