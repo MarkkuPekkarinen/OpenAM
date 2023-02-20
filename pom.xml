@@ -140,7 +140,7 @@
     <license.version>1.0.0</license.version>
     <checkstyleFailOnError>false</checkstyleFailOnError>
     <logback.version>1.2.3</logback.version>
-    <netty.version>4.1.84.Final</netty.version>
+    <netty.version>4.1.89.Final</netty.version>
   </properties>
   <!-- Profiles -->
   <profiles>
@@ -1884,11 +1884,6 @@
    			<groupId>com.fasterxml.woodstox</groupId>
    			<artifactId>woodstox-core</artifactId>
    		</dependency>
-		<dependency>
-		    <groupId>org.yaml</groupId>
-		    <artifactId>snakeyaml</artifactId>
-		    <version>1.32</version>
-		</dependency>
 		<dependency>
 			<groupId>org.owasp.antisamy</groupId>
 			<artifactId>antisamy</artifactId>
