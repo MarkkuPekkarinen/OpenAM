@@ -39,17 +39,17 @@
 			<dependency>
 			    <groupId>com.datastax.oss</groupId>
 			    <artifactId>java-driver-core</artifactId>
-			    <version>4.15.0</version>
+			    <version>4.16.0</version>
 			</dependency>
 			<dependency>
 			  <groupId>com.datastax.oss</groupId>
 			  <artifactId>java-driver-query-builder</artifactId>
-			  <version>4.15.0</version>
+			  <version>4.16.0</version>
 			</dependency>
 			<dependency>
 			    <groupId>org.apache.cassandra</groupId>
 			    <artifactId>cassandra-all</artifactId>
-			    <version>4.0.8</version>
+			    <version>4.0.10</version>
 			</dependency>
 			<dependency>
 			    <groupId>org.lz4</groupId>
@@ -59,7 +59,7 @@
 			<dependency>
 			    <groupId>org.xerial.snappy</groupId>
 			    <artifactId>snappy-java</artifactId>
-			    <version>1.1.8.4</version>
+			    <version>1.1.10.1</version>
 			</dependency>
 			<dependency>
 			    <groupId>com.google.guava</groupId>
