@@ -79,7 +79,7 @@
     <maven.compiler.source>1.8</maven.compiler.source>
     <!-- Supress checkstyle errors on legacy com.iplanet and com.sun.identity packages -->
     <checkstyleUnitTestSuppressionsLocation>checkstyle/suppressions.xml</checkstyleUnitTestSuppressionsLocation>
-    <opendj.version>4.5.6</opendj.version>
+    <opendj.version>4.5.9</opendj.version>
     <javadoc-utils.version>1.0.0</javadoc-utils.version>
     <ant.contrib.version>1.0b3</ant.contrib.version>
     <guice.version>3.0</guice.version>
@@ -378,7 +378,7 @@
 			      <configuration>
 			        <serverId>ossrh</serverId>
 			        <nexusUrl>https://oss.sonatype.org/</nexusUrl>
-			        <autoReleaseAfterClose>true</autoReleaseAfterClose>
+			        <autoReleaseAfterClose>false</autoReleaseAfterClose>
 			        <stagingProgressTimeoutMinutes>15</stagingProgressTimeoutMinutes>
 			        <keepStagingRepositoryOnFailure>true</keepStagingRepositoryOnFailure>
 			        <keepStagingRepositoryOnCloseRuleFailure>true</keepStagingRepositoryOnCloseRuleFailure>
