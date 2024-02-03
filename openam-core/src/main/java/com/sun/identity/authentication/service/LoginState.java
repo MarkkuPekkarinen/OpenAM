@@ -26,7 +26,7 @@
  *
  * Portions Copyrighted 2010-2016 ForgeRock AS.
  * Portions Copyrighted 2016 Nomura Research Institute, Ltd.
- * Portions Copyrighted 2023 3A Systems LLC
+ * Portions Copyrighted 2024 3A Systems LLC
  */
 
 package com.sun.identity.authentication.service;
@@ -1104,13 +1104,16 @@ public class LoginState {
             InternalSession internalSession = getReferencedSession();
             
             final SessionActivator sa=getSessionActivator();
-            DEBUG.message("activate before isSessionUpgrade={} forceAuth={} getSessionActivator={} oldSessionReference={} getOldSession={} sessionReference={} getSession={} finalSessionId={}" , 
-            		isSessionUpgrade(),forceAuth,sa.getClass().getSimpleName(),oldSessionReference,getOldSession(),sessionReference,getSession(),finalSessionId);
+            if(DEBUG.messageEnabled()) {
+                DEBUG.message("activate before isSessionUpgrade={} forceAuth={} getSessionActivator={} oldSessionReference={} getOldSession={} sessionReference={} getSession={} finalSessionId={}",
+                        isSessionUpgrade(), forceAuth, sa.getClass().getSimpleName(), oldSessionReference, getOldSession(), sessionReference, getSession(), finalSessionId);
+            }
             
             final boolean isSessionActivated = sa.activateSession(this, AuthD.getSessionService(),internalSession, subject);
-            
-            DEBUG.message("activate after isSessionUpgrade={} forceAuth={} getSessionActivator={} oldSessionReference={} getOldSession={} sessionReference={} getSession={} finalSessionId={}" , 
-            		isSessionUpgrade(),forceAuth,sa.getClass().getSimpleName(),oldSessionReference,getOldSession(),sessionReference,getSession(),finalSessionId);
+            if(DEBUG.messageEnabled()) {
+                DEBUG.message("activate after isSessionUpgrade={} forceAuth={} getSessionActivator={} oldSessionReference={} getOldSession={} sessionReference={} getSession={} finalSessionId={}",
+                        isSessionUpgrade(), forceAuth, sa.getClass().getSimpleName(), oldSessionReference, getOldSession(), sessionReference, getSession(), finalSessionId);
+            }
             
             if (isSessionActivated) {
                 this.activatedSessionTrackingId = internalSession.getProperty(Constants.AM_CTX_ID);
@@ -1605,8 +1608,10 @@ public class LoginState {
     /* destroy session */
     void destroySession() {
         if (sessionReference != null) {
-            AuthUtils.removeAuthContext(finalSessionId);
-            LazyConfig.AUTHD.destroySession(finalSessionId);
+            if(!isNoSession()) {
+                AuthUtils.removeAuthContext(finalSessionId);
+                LazyConfig.AUTHD.destroySession(finalSessionId);
+            }
             finalSessionId = null;
             sessionReference = null;
         }
@@ -4229,7 +4234,7 @@ public class LoginState {
             String[] data = dataList.toArray(new String[dataList.size()]);
             String contextId = null;
             SSOToken localSSOToken = null;
-            if (!isNoSession()) {
+            if (!isNoSession() && oldSessionReference != null) {
                 localSSOToken = getSSOToken();
             }
             if (localSSOToken != null) {
@@ -4249,7 +4254,11 @@ public class LoginState {
             if (authMethName != null) {
                 props.put(LogConstants.MODULE_NAME, authMethName);
             }
-            InternalSession session = getReferencedSession();
+            InternalSession session = null;
+            if(!isNoSession()) {
+                session = getReferencedSession();
+            }
+
             if (session != null) {
                 props.put(LogConstants.LOGIN_ID_SID, finalSessionId.toString());
             }
@@ -5008,9 +5017,13 @@ public class LoginState {
                     sb.append(postLoginClassName);
                 }
             }
-            InternalSession session = getReferencedSession();
-            if(session != null)
-            	session.putProperty(ISAuthConstants.POST_AUTH_PROCESS_INSTANCE, sb.toString());
+            if(!isNoSession()) {
+                InternalSession session = getReferencedSession();
+                if(session != null) {
+                    session.putProperty(ISAuthConstants.POST_AUTH_PROCESS_INSTANCE, sb.toString());
+                }
+            }
+
         }
         return postLoginInstanceSet;
     }
