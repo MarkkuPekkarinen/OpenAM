@@ -1,70 +1,119 @@
-function bufferDecode(value) {
-    return Uint8Array.from(atob(value), c => c.charCodeAt(0));
-}
+function WebAuthn() {
+    function bufferDecode(value) {
+        return Uint8Array.from(atob(value), c => c.charCodeAt(0));
+    }
 
-function bufferEncode(value) {
-    return Base64.fromByteArray(value)
-        .replace(/\+/g, "-")
-        .replace(/\//g, "_")
-        .replace(/=/g, "");
-}
+    function bufferEncode(bytes) {
+        let binary = ''
+        const len = bytes.byteLength;
+        for (let i = 0; i < len; i++) {
+            binary += String.fromCharCode(bytes[i]);
+        }
+        return window.btoa(binary).replace(/\+/g, "-")
+            .replace(/\//g, "_")
+            .replace(/=/g, "")
+    }
 
-function processRegistrationChallenge() {
-    var challengeStr = document.querySelector(".TextOutputCallback_0").innerText;
-    var challenge = JSON.parse(challengeStr);
-    challenge.challenge = bufferDecode(challenge.challenge.value);
-    challenge.user.id = bufferDecode(challenge.user.id);
-    navigator.credentials.create({
-        publicKey: challenge,
-    }).then((credential) => {
-        register(credential);
-    }).catch((e) => {
+    function processRegistrationChallenge() {
+        var challengeStr = getRegistrationChallenge();
+        var challenge = JSON.parse(challengeStr);
+        challenge.challenge = bufferDecode(challenge.challenge.value);
+        challenge.user.id = bufferDecode(challenge.user.id);
+        navigator.credentials.create({
+            publicKey: challenge,
+        }).then((credential) => {
+            register(credential);
+        }).catch((e) => {
+                console.log(e.toString());
+            }
+        );
+    }
+
+    function getRegistrationChallenge() {
+        var querySelector = ".TextOutputCallback_0";
+        if (isXUI()) {
+            querySelector = "#callback_1";
+        }
+        return document.querySelector(querySelector).innerText;
+    }
+
+    function isXUI() {
+        return !!window.requirejs;
+    }
+
+    function register(credential) {
+        var idToken1Sel = "IDToken1";
+        var buttonSel = "[name='Login.Submit']";
+        if (isXUI()) {
+            idToken1Sel = "idToken1";
+            buttonSel = "#loginButton_0";
+        }
+
+        var credentials = {
+            credentialId: credential.id,
+            attestationObject: bufferEncode(new Uint8Array(credential.response.attestationObject)),
+            clientDataJSON: bufferEncode(new Uint8Array(credential.response.clientDataJSON)),
+        }
+
+        document.getElementById(idToken1Sel).value = JSON.stringify(credentials);
+        document.querySelector(buttonSel).click();
+    }
+
+
+    function processAuthenticationChallenge() {
+        var credentialsStr = getAuthenticationChallenge();
+        var credentials = JSON.parse(credentialsStr);
+        credentials.challenge = bufferDecode(credentials.challenge.value);
+        credentials.allowCredentials.forEach(function (allowCredential, i) {
+                allowCredential.id = bufferDecode(allowCredential.id);
+            }
+        );
+
+        navigator.credentials.get({
+            publicKey: credentials,
+        }).then((assertion) => {
+            assert(assertion);
+        }).catch((e) => {
             console.log(e.toString());
+        });
+    }
+
+    function assert(assertion) {
+
+        var authenticatorData = new Uint8Array(assertion.response.authenticatorData);
+        var clientDataJSON = new Uint8Array(assertion.response.clientDataJSON);
+        var signature = new Uint8Array(assertion.response.signature);
+        var userHandle = new Uint8Array(assertion.response.userHandle);
+
+        var idToken1Sel = "IDToken1";
+        var buttonSel = "[name='Login.Submit']";
+        if (isXUI()) {
+            idToken1Sel = "idToken1";
+            buttonSel = "#loginButton_0";
         }
-    );
-}
 
-function register(credential) {
-    document.getElementById("IDToken1").value = credential.id;
-    document.getElementById('IDToken2').value = credential.type;
-    document.getElementById('IDToken3').value = bufferEncode( new Uint8Array(credential.response.attestationObject));
-    document.getElementById('IDToken4').value = bufferEncode( new Uint8Array(credential.response.clientDataJSON));
-
-    document.querySelector("form").submit();
-}
-
-function processAuthenticationChallenge() {
-    var credentialsStr = document.querySelector(".TextOutputCallback_0").innerText;
-    var credentials = JSON.parse(credentialsStr);
-    credentials.challenge = bufferDecode(credentials.challenge.value);
-    credentials.allowCredentials.forEach(function (allowCredential, i) {
-            allowCredential.id = bufferDecode(allowCredential.id);
+        var credentials = {
+            assertionId: assertion.id,
+            authenticatorData: bufferEncode(new Uint8Array(authenticatorData)),
+            clientDataJSON: bufferEncode(new Uint8Array(clientDataJSON)),
+            signature: bufferEncode(new Uint8Array(signature)),
+            userHandle: bufferEncode(userHandle),
         }
-    );
 
-    navigator.credentials.get({
-        publicKey: credentials,
-    }).then((assertion) => {
-        assert(assertion);
-    }).catch((e) => {
-        console.log(e.toString());
-    });
-}
+        document.getElementById(idToken1Sel).value = JSON.stringify(credentials);
+        document.querySelector(buttonSel).click();
 
-function assert(assertion) {
+    }
 
-    var authenticatorData = new Uint8Array(assertion.response.authenticatorData);
-    var clientDataJSON = new Uint8Array(assertion.response.clientDataJSON);
-    var signature = new Uint8Array(assertion.response.signature);
-    var userHandle = new Uint8Array(assertion.response.userHandle);
-    var rawId = new Uint8Array(assertion.rawId);
-
-    document.getElementById("IDToken1").value = assertion.id;
-    document.getElementById('IDToken2').value = bufferEncode( new Uint8Array(authenticatorData));
-    document.getElementById('IDToken3').value = bufferEncode( new Uint8Array(clientDataJSON));
-    document.getElementById('IDToken4').value = bufferEncode( new Uint8Array(signature));
-    document.getElementById('IDToken5').value = bufferEncode(userHandle);
-
-    document.querySelector("form").submit();
-
+    function getAuthenticationChallenge() {
+        var querySelector = ".TextOutputCallback_0";
+        if (isXUI()) {
+            querySelector = "#callback_1";
+        }
+        return document.querySelector(querySelector).innerText;
+    }
+    return {
+        processRegistrationChallenge: processRegistrationChallenge,
+        processAuthenticationChallenge: processAuthenticationChallenge,
+    }
 }
