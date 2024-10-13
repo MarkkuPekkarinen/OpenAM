@@ -13,6 +13,8 @@
  *
  * Copyright 2014-2016 ForgeRock AS.
  * Portions Copyrighted 2015 Nomura Research Institute, Ltd.
+ * Portions copyright 2019 Open Source Solution Technology Corporation
+ * Portions Copyrighted 2024 3A Systems LLC.
  */
 
 package org.forgerock.oauth2.core;
@@ -39,6 +41,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import freemarker.core.TemplateClassResolver;
 import org.forgerock.guice.core.InjectorHolder;
 import org.forgerock.json.JsonValue;
 import org.forgerock.json.jose.jwk.KeyUse;
@@ -963,6 +966,7 @@ public class RealmOAuth2ProviderSettings implements OAuth2ProviderSettings {
             if (loginUrlTemplateString != null) {
                 loginUrlTemplate = new Template("customLoginUrlTemplate", new StringReader(loginUrlTemplateString),
                         new Configuration());
+                loginUrlTemplate.setNewBuiltinClassResolver(TemplateClassResolver.SAFER_RESOLVER);
             }
             return loginUrlTemplate;
         } catch (SSOException | IOException | SMSException e) {
@@ -1032,6 +1036,8 @@ public class RealmOAuth2ProviderSettings implements OAuth2ProviderSettings {
                     attributeCache.clear();
                     jwks.clear();
                     loginUrlTemplate = null;
+                    supportedClaimsWithoutTranslations=null;
+                    supportedScopesWithoutTranslations=null;
                 }
             } else {
                 if (logger.messageEnabled()) {

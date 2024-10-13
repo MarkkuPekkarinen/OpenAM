@@ -21,7 +21,7 @@
     <parent>
         <groupId>org.openidentityplatform.openam</groupId>
         <artifactId>openam-documentation</artifactId>
-        <version>15.0.4-SNAPSHOT</version>
+        <version>15.1.1-SNAPSHOT</version>
     </parent>
 
     <name>OpenAM Server Documentation Sources</name>
@@ -70,7 +70,10 @@
         <profile>
             <id>man-pages</id>
             <activation>
-                <os><family>unix</family></os>
+                <os>
+                    <family>unix</family>
+                    <name>Linux</name>
+                </os>
                 <jdk>1.8</jdk>
             </activation>
             <build>
@@ -78,68 +81,35 @@
                     <plugin>
                         <groupId>org.openidentityplatform.commons</groupId>
                         <artifactId>doc-maven-plugin</artifactId>
-                        <version>${commons-plugin.version}</version>
                         <executions>
                             <execution>
-                                <id>build-man-pages</id>
+                                <id>build-man-pages-asciidoc</id>
                                 <phase>package</phase>
                                 <goals>
-                                    <goal>process</goal>
-                                    <goal>build</goal>
-                                    <goal>release</goal>
+                                    <goal>asciidoc-pre-process</goal>
+                                    <goal>antora</goal>
+                                    <goal>asciidoc-to-pdf</goal>
                                 </goals>
+                                <configuration>
+                                    <documents>
+                                        <document>getting-started</document>
+                                        <document>install-guide</document>
+                                        <document>upgrade-guide</document>
+                                        <document>admin-guide</document>
+                                        <document>dev-guide</document>
+                                        <document>deployment-planning</document>
+                                        <document>reference</document>
+                                        <document>web-users-guide</document>
+                                        <document>jee-users-guide</document>
+                                    </documents>
+                                </configuration>
                             </execution>
                         </executions>
                         <configuration>
                             <projectName>OpenAM</projectName>
                             <projectVersion>${project.version}</projectVersion>
                             <releaseVersion>${project.version}</releaseVersion>
-                            <buildReleaseZip>true</buildReleaseZip>
-                            <googleAnalyticsId />
-                            <isDraftMode>no</isDraftMode>
-                            <formats combine.self="override">
-                                <format>man</format>
-                                <format>epub</format>
-                                <format>html</format>
-                                <format>pdf</format>
-                                <format>webhelp</format>
-                                <format>xhtml5</format>
-                            </formats>
                         </configuration>
-                    </plugin>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-antrun-plugin</artifactId>
-                        <executions>
-                            <execution>
-                                <id>zip-docs</id>
-                                <phase>package</phase>
-                                <configuration>
-                                    <target>
-                                        <property name="compress_formats" value="webhelp,xhtml,html" />
-                                        <ant antfile="${basedir}/src/main/ant/zip.xml">
-                                            <target name="docs" />
-                                        </ant>&gt;
-                                    </target>
-                                </configuration>
-                                <goals>
-                                    <goal>run</goal>
-                                </goals>
-                            </execution>
-                        </executions>
-                        <dependencies>
-                            <dependency>
-                                <groupId>ant-contrib</groupId>
-                                <artifactId>ant-contrib</artifactId>
-                                <version>${ant.contrib.version}</version>
-                                <exclusions>
-                                    <exclusion>
-                                        <groupId>ant</groupId>
-                                        <artifactId>ant</artifactId>
-                                    </exclusion>
-                                </exclusions>
-                            </dependency>
-                        </dependencies>
                     </plugin>
                 </plugins>
             </build>
