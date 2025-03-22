@@ -22,7 +22,7 @@
   <name>OpenAM Project</name>
   <groupId>org.openidentityplatform.openam</groupId>
   <artifactId>openam</artifactId>
-  <version>15.1.5-SNAPSHOT</version>
+  <version>15.1.6-SNAPSHOT</version>
   <packaging>pom</packaging>
   <description>OpenAM</description>
   <inceptionYear>2010</inceptionYear>
@@ -79,11 +79,11 @@
     <maven.compiler.source>8</maven.compiler.source>
     <!-- Supress checkstyle errors on legacy com.iplanet and com.sun.identity packages -->
     <checkstyleUnitTestSuppressionsLocation>checkstyle/suppressions.xml</checkstyleUnitTestSuppressionsLocation>
-    <opendj.version>4.9.2</opendj.version>
+    <opendj.version>4.9.3</opendj.version>
     <javadoc-utils.version>1.0.0</javadoc-utils.version>
     <ant.contrib.version>1.0b3</ant.contrib.version>
     <guice.version>3.0</guice.version>
-    <restlet.version>2.4.0</restlet.version>
+    <restlet.version>2.4.4</restlet.version>
     <powermock.version>2.0.9</powermock.version>
 <!--     <slf4j.version>1.7.25</slf4j.version> -->
     <click.version>2.3.0</click.version>
@@ -266,7 +266,7 @@
 			        </execution>
 			      </executions>
 			    </plugin>
-			    <!--plugin>
+			    <plugin>
 			      <groupId>org.sonatype.plugins</groupId>
 			      <artifactId>nexus-staging-maven-plugin</artifactId>
 			      <version>1.7.0</version>
@@ -286,7 +286,7 @@
 				        <version>15.0</version>
 				     </dependency>
 			      </dependencies>
-			    </plugin-->
+			    </plugin>
             </plugins>
         </build>
     </profile>
@@ -1971,7 +1971,7 @@
         <configuration>
           <autoVersionSubmodules>true</autoVersionSubmodules>
           <updateBranchVersions>true</updateBranchVersions>
-          <goals>install javadoc:aggregate-jar deploy</goals>
+          <!--goals>install javadoc:aggregate-jar deploy</goals-->
           <signTag>true</signTag>
   		  <tagNameFormat>@{project.version}</tagNameFormat>
   		  <allowTimestampedSnapshots>false</allowTimestampedSnapshots>
