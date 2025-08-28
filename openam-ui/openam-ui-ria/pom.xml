@@ -19,7 +19,7 @@
     <parent>
         <groupId>org.openidentityplatform.openam</groupId>
         <artifactId>openam-ui</artifactId>
-        <version>15.2.1-SNAPSHOT</version>
+        <version>15.2.2-SNAPSHOT</version>
     </parent>
 
     <artifactId>openam-ui-ria</artifactId>
@@ -326,6 +326,16 @@
                         <phase>compile</phase>
                         <configuration>
                             <arguments>run build:production -- --target-version=${project.version}</arguments>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>npm-test</id>
+                        <goals>
+                            <goal>npm</goal>
+                        </goals>
+                        <phase>test</phase>
+                        <configuration>
+                            <arguments>run test</arguments>
                         </configuration>
                     </execution>
                 </executions>

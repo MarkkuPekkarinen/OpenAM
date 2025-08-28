@@ -22,7 +22,7 @@
   <name>OpenAM Project</name>
   <groupId>org.openidentityplatform.openam</groupId>
   <artifactId>openam</artifactId>
-  <version>15.2.1-SNAPSHOT</version>
+  <version>15.2.2-SNAPSHOT</version>
   <packaging>pom</packaging>
   <description>OpenAM</description>
   <inceptionYear>2010</inceptionYear>
@@ -79,7 +79,7 @@
     <maven.compiler.source>8</maven.compiler.source>
     <!-- Supress checkstyle errors on legacy com.iplanet and com.sun.identity packages -->
     <checkstyleUnitTestSuppressionsLocation>checkstyle/suppressions.xml</checkstyleUnitTestSuppressionsLocation>
-    <opendj.version>4.10.0</opendj.version>
+    <opendj.version>4.10.1</opendj.version>
     <javadoc-utils.version>1.0.0</javadoc-utils.version>
     <ant.contrib.version>1.0b3</ant.contrib.version>
     <guice.version>3.0</guice.version>
@@ -1210,6 +1210,12 @@
         <groupId>org.openidentityplatform.openam.shaded</groupId>
         <artifactId>jato-shaded</artifactId>
         <version>${project.version}</version>
+        <exclusions>
+          <exclusion>
+            <groupId>org.openidentityplatform.external.com.iplanet.jato</groupId>
+            <artifactId>jato</artifactId>
+          </exclusion>
+        </exclusions>
       </dependency>
       <dependency>
         <groupId>org.openidentityplatform.external.com.sun.web.ui</groupId>
