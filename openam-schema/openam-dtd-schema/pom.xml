@@ -21,7 +21,7 @@
     <parent>
         <groupId>org.openidentityplatform.openam</groupId>
         <artifactId>openam-schema</artifactId>
-        <version>16.0.7-SNAPSHOT</version>
+        <version>16.1.4-SNAPSHOT</version>
     </parent>
 
     <!-- Component Definition -->
@@ -29,18 +29,5 @@
     <description>OpenAM Identity Services DTD Components</description>
     <artifactId>openam-dtd-schema</artifactId>
     <packaging>jar</packaging>
-
-    <!-- Build -->
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-javadoc-plugin</artifactId>
-                <configuration>
-                    <skip>true</skip>
-                </configuration>
-            </plugin>
-        </plugins>
-    </build>
 </project>
 

@@ -12,6 +12,7 @@
  * information: "Portions copyright [year] [name of copyright owner]".
  *
  * Copyright 2014-2016 ForgeRock AS.
+ * Portions copyright 2026 3A Systems LLC
  */
 package com.iplanet.dpro.session.operations.strategies;
 
@@ -74,8 +75,8 @@ public class ClientSdkOperations implements SessionOperations {
      *
      * @param session The Session to update.
      * @param reset If true, then update the last modified timestamp of the Session.
-     * @return
-     * @throws SessionException
+     * @return the refreshed SessionInfo for the given session
+     * @throws SessionException if the session could not be refreshed
      */
     public SessionInfo refresh(Session session, boolean reset) throws SessionException {
         SessionID sessionID = session.getID();
@@ -144,7 +145,7 @@ public class ClientSdkOperations implements SessionOperations {
     }
 
     @Override
-    public Collection<PartialSession> getMatchingSessions(CrestQuery crestQuery) {
+    public Collection<PartialSession> getMatchingSessions(Session caller, CrestQuery crestQuery) {
         throw new UnsupportedOperationException("Querying sessions is currently not supported with the ClientSDK");
     }
 
@@ -195,7 +196,7 @@ public class ClientSdkOperations implements SessionOperations {
     }
 
     @Override
-    public void addSessionListener(Session session, String url) throws SessionException {
+    public void addSessionListener(SSOToken clientToken, Session session, String url) throws SessionException {
         SessionRequest sreq = new SessionRequest(
                 SessionRequest.AddSessionListener,
                 session.getSessionID().toString(), false);

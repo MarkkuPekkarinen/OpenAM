@@ -12,13 +12,13 @@
   information: "Portions copyright [year] [name of copyright owner]".
  
   Copyright 2017 ForgeRock AS.
-  Portions Copyright 2024-2025 3A Systems LLC.
+  Portions Copyright 2024-2026 3A Systems LLC.
 ////
 
 :figure-caption!:
 :example-caption!:
 :table-caption!:
-:openam-version: 15.1.3
+:openam-version: x.y.z
 
 
 [#chap-config-ref]
@@ -1904,6 +1904,9 @@ Specifies whether to connect to the SMTP mail server using SSL.
 Default: use SSL (`true`)
 
 +
+Over SSL, the server certificate has to name the mail server host; see `org.openidentityplatform.openam.smtp.checkServerIdentity` in xref:#servers-advanced-configuration["Advanced"].
+
++
 `ssoadm` attribute: `forgerockEmailServiceSMTPSSLEnabled`
 
 Email From Address::
@@ -2169,6 +2172,18 @@ Default: No user attributes are protected.
 [#liberty-id-ff-service-configuration]
 ==== Liberty ID-FF Service Configuration
 
+[NOTE]
+====
+The Liberty ID-WSF SOAP endpoints (`/Liberty/*` and `/WSPRedirectHandler/*`) are disabled by default. To enable them, set the advanced server property `com.sun.identity.liberty.enabled` to `true`. Two additional advanced properties (`com.sun.identity.liberty.soap.sensitiveHandlers` and `com.sun.identity.liberty.allowAnonymousWSC`) control how anonymous and null-family authentication is handled by sensitive Liberty handlers (IDPP, Discovery, AuthnSvc, Interaction). See xref:#servers-advanced-configuration["Advanced"].
+====
+
+[NOTE]
+====
+The Liberty ID-FF SOAP endpoint (`/SOAPReceiver/*`, served by `FSSOAPReceiver`) is disabled by default. To enable it, set the advanced server property `com.sun.identity.federation.services.soap.enabled` to `true`. This kill-switch covers the whole endpoint, including ID-FF browser-artifact single sign-on and LECP, not only the state-changing operations.
+
+Independently of that kill-switch, inbound ID-FF state-changing and disclosure operations (federation termination, name registration, single logout, and name-identifier mapping) require a verified XML signature unless `com.sun.identity.federation.services.requireSignature` is set to `false` (not recommended). That requirement applies to both the SOAP binding and the HTTP-Redirect binding (`/ProcessTermination/*`, `/ProcessLogout/*`, and `/ProcessRegistration/*`), and OpenAM only signs its own outbound ID-FF messages when `XMLSigningOn` is enabled. See xref:#servers-advanced-configuration["Advanced"].
+====
+
 --
 `ssoadm` service name: `sunFAMIDFFConfiguration`
 
@@ -2394,6 +2409,21 @@ Default: `OIDC Claims Script`
 
 +
 `ssoadm` attribute: `forgerock-oauth2-provider-oidc-claims-extension-script`
+
+OAuth2 Access Token Modification Script::
+The script that is run when issuing a stateless (JWT) OAuth 2.0 access token or refresh token. The script can add, modify, or remove claims in the token payload, allowing custom claims (such as `acr`, `amr`, roles, or profile attributes) to be embedded directly in the access token.
+
++
+The script has access to a mutable view of the token (`accessToken`), the granted scopes, the resource owner's identity, the user's session (if available), and selected request properties.
+
++
+This script is only run when stateless tokens are enabled. For more information on scripting, see xref:../dev-guide/chap-scripting.adoc#scripting-api-access-token-modification["OAuth2 Access Token Modification API Functionality"] in the __Developer's Guide__.
+
++
+Default: `OAuth2 Access Token Modification Script`
+
++
+`ssoadm` attribute: `forgerock-oauth2-provider-access-token-modification-script`
 
 Response Type Plugins::
 List of plugins that handle the valid `response_type` values. OAuth 2.0 clients pass response types as parameters to the OAuth 2.0 Authorization endpoint (`/oauth2/authorize`) to indicate which grant type is requested from the provider. For example, the client passes `code` when requesting an authorization code, and `token` when requesting an access token.
@@ -2679,10 +2709,25 @@ If not enabled, if an access token is requested the client must use it to access
 `ssoadm` attribute: `alwaysAddClaimsToToken`
 
 Code Verifier Parameter Required::
-If enabled, requests using the authorization code grant require a `code_challenge` attribute.
+If enabled, every request whose `response_type` includes `code` must supply a `code_challenge` parameter at the authorization endpoint and a matching `code_verifier` parameter at the token endpoint (Proof Key for Code Exchange, PKCE). Enforcement covers the plain authorization code grant and the OpenID Connect hybrid flows (`code token`, `code id_token`, and `code id_token token`) alike, because every one of them issues an authorization code.
 
 +
-For more information, see the Internet-Draft: link:https://tools.ietf.org/html/draft-ietf-oauth-spop-12[Proof Key for Code Exchange by OAuth Public Clients, window=\_top].
+This property is *enabled by default*.
+
++
+[NOTE]
+====
+Independently of this setting, if an authorization code was issued together with a `code_challenge`, OpenAM always requires and validates the corresponding `code_verifier` when the code is exchanged at the token endpoint, as mandated by link:https://tools.ietf.org/html/rfc7636#section-4.6[RFC 7636 §4.6, window=\_top]. Disabling this property only stops OpenAM from *forcing* all clients to use PKCE; it never relaxes verification for codes that were issued with a challenge. This prevents PKCE downgrade attacks.
+====
+
++
+If the `code_challenge_method` parameter is omitted, it defaults to `plain`, as specified in link:https://tools.ietf.org/html/rfc7636#section-4.3[RFC 7636 §4.3, window=\_top]. OpenAM supports `plain` and `S256`. While this property is enabled, the authorization endpoint rejects any other value; an explicitly empty value is treated as malformed rather than as an omitted one. Prefer `S256`: link:https://tools.ietf.org/html/rfc7636#section-7.2[RFC 7636 §7.2, window=\_top] states that `plain` SHOULD NOT be used, and retains it only for clients that cannot compute a SHA-256 digest.
+
++
+This property governs the realm's OAuth2 provider. Clients served by an agent provider profile are never forced to use PKCE, whatever this property is set to; a `code_challenge` that such a client does send is still bound to the code and verified at the token endpoint.
+
++
+For more information, see link:https://tools.ietf.org/html/rfc7636[Proof Key for Code Exchange by OAuth Public Clients, window=\_top] - __RFC 7636__.
 
 +
 `ssoadm` attribute: `forgerock-oauth2-provider-code-verifier-enforced`
@@ -3252,7 +3297,6 @@ Use the ForgeRock Backstage website to provision values for the following Simple
 
 * SNS Client Region
 
-For information on provisioning the credentials required by the Push Notification Service, see link:https://backstage.forgerock.com/knowledge/kb/article/a47604373[How do I set up AM/OpenAM Push Notification Service credentials, window=\_blank] in the __BackStage Help Knowledge Base__.
 --
 `ssoadm` service name: `PushNotificationService`
 
@@ -3641,6 +3685,9 @@ Client-side Authentication
 `OIDC_CLAIMS`::
 OIDC Claims
 
+`OAUTH2_ACCESS_TOKEN_MODIFICATION`::
+OAuth2 Access Token Modification
+
 ====
 +
 The following properties are available for Scripting Service secondary configuration instances:
@@ -3734,7 +3781,7 @@ If enabled, OpenAM will make a call to `System.getSecurityManager().checkPackage
 
 [NOTE]
 ==========
-This feature only takes effect if the security manager is enabled for the JVM.
+This feature only takes effect if the security manager is enabled for the JVM. The JVM security manager is deprecated, disabled by default, and cannot be installed on recent Java versions, so this setting may have no effect; do not rely on it as the sole safeguard. For Groovy scripts, compile-time AST transformation annotations (such as `@Grab` and `@ASTTest`) are rejected during compilation regardless of this setting.
 ==========
 +
 `ssoadm` attribute: `useSecurityManager`
@@ -4282,7 +4329,7 @@ Outgoing Email Body::
 Customizes the user self-registration email body text.
 
 +
-Default: `en|<h2>Click on this <a href="%link%">link </a> to register.</h2>`
+Default: `+en|<h2>Click on this <a href="%link%">link </a> to register.</h2>+`
 
 +
 `ssoadm` attribute: `selfServiceUserRegistrationEmailBody`
@@ -4407,7 +4454,7 @@ Outgoing Email Body::
 Customizes the forgotten password email body text.
 
 +
-Default: `en|<h2>Click on this <a href="%link%"> link</a> to reset your password.</h2>`
+Default: `+en|<h2>Click on this <a href="%link%"> link</a> to reset your password.</h2>+`
 
 +
 `ssoadm` attribute: `selfServiceForgottenPasswordEmailBody`
@@ -4777,10 +4824,19 @@ Secure Cookie::
 If yes, then OpenAM sets the cookie in secure mode such that the browser only returns the cookie if a secure protocol such as HTTPS is used.
 
 +
-Default: No
+Default: Derived from the deployment URL scheme at install time. If the server is configured over HTTPS, the secure flag is enabled (`Yes`); over plain HTTP it is left disabled (`No`) with a deploy-time warning.
 
 +
 property: `com.iplanet.am.cookie.secure`
+
+SameSite Cookie::
+Sets the `SameSite` attribute on the cookies issued by OpenAM. Valid values are `Lax`, `Strict`, and `None`.
+
++
+Default: `Lax`
+
++
+property: `org.openidentityplatform.openam.cookie.samesite`
 
 Encode Cookie Value::
 If yes, then OpenAM URL encodes cookie values.
@@ -5577,10 +5633,13 @@ Number of threads in the shared system timer pool used to schedule operations su
 Default: `3`
 
 `com.sun.identity.cookie.httponly`::
-When set to `true`, mark cookies as HTTPOnly to prevent scripts and third-party programs from accessing the cookies.
+When set to `true`, mark cookies as HttpOnly to prevent scripts and third-party programs from accessing the cookies.
 
 +
-Note that this configuration option is used only in non-XUI deployments. The XUI cannot set the HttpOnly name in a cookie.
+Both the classic UI and the XUI support HttpOnly session cookies. When HttpOnly is enabled, the XUI relies on the automatically sent cookie instead of reading the token from JavaScript, and a successful `/json/authenticate` response delivers the token only through the `Set-Cookie` header (the `tokenId` is, by default, no longer returned in the response body). See `org.openidentityplatform.openam.httponly.allowTokenInBody` to control that behaviour. The OpenID Connect session management OP iframe (`/oauth2/connect/checkSession`) is a known exception: it reads the session cookie from JavaScript to compute the browser state, and so cannot observe the session while HttpOnly is enabled.
+
++
+Changes to this property do not take effect until you restart the OpenAM server.
 
 +
 Default: `false`
@@ -5591,11 +5650,62 @@ If `true`, then OpenAM is using protection against cookie hijacking.
 +
 Default: `false`
 
+`com.sun.identity.federation.services.soap.enabled`::
+Master kill-switch for the legacy Liberty ID-FF (Liberty Alliance 1.x) SOAP endpoint (`/SOAPReceiver/*` served by `FSSOAPReceiver`).
+
++
+When `false` (the default), every request to this endpoint is rejected with HTTP 404. Liberty ID-FF is a legacy federation protocol and this endpoint is reachable without authentication, so it is disabled unless a deployment actively uses ID-FF federation. The kill-switch covers every operation served by the endpoint, including ID-FF browser-artifact single sign-on and LECP. The property is read on every request, so the endpoint can be enabled or disabled without restarting OpenAM.
+
++
+Default: `false`
+
+`com.sun.identity.federation.services.requireSignature`::
+Controls whether inbound Liberty ID-FF requests for state-changing or disclosure operations (federation termination, name registration, single logout, and name-identifier mapping) must carry a verified XML signature. Applies to both the SOAP binding (`/SOAPReceiver/*`) and the HTTP-Redirect binding (`/ProcessTermination/*`, `/ProcessLogout/*`, and `/ProcessRegistration/*`). These endpoints are reachable without authentication and act on the user named by an opaque handle in the request, so the signature is what identifies the caller.
+
++
+When `true` (the default), unsigned requests for these operations are rejected even when message signing is otherwise optional or off (see `XMLSigningOn` under `sunFAMIDFFConfiguration`, exposed as `com.sun.identity.federation.services.signingOn`). Because OpenAM only signs its own outbound ID-FF messages when that setting is enabled, a deployment that leaves this property at its default must also enable `XMLSigningOn` and configure a signing certificate on every participating provider; otherwise OpenAM's own single logout, federation termination, and name registration messages are rejected by the receiving provider. Set this property to `false` only to restore the legacy (insecure) behaviour required by deployments whose federation partners do not sign ID-FF messages.
+
++
+Only the exact value `false` disables the requirement; any other value, including a malformed one, leaves it enabled.
+
++
+Default: `true`
+
 `com.sun.identity.jss.donotInstallAtHighestPriority`::
 Whether JSS should take priority over other providers.
 
 +
 Default: `true`
+
+`com.sun.identity.liberty.allowAnonymousWSC`::
+Controls whether the Liberty ID-WSF SOAP receiver mints a synthetic anonymous Web Service Client (WSC) session for null-family authentication mechanisms (`urn:liberty:security:2003-08:null:*`) when no client credential (TLS or message certificate) is presented.
+
++
+When `false` (the default), such requests are rejected (fail-close). Set to `true` only to restore the legacy (insecure) behaviour required by deployments that explicitly rely on anonymous WSC sessions. This setting was introduced as part of the GHSA-p462-xxwx-pqf4 hardening.
+
++
+Default: `false`
+
+`com.sun.identity.liberty.enabled`::
+Master kill-switch for the legacy Liberty ID-WSF SOAP endpoints (`/Liberty/*` served by `SOAPReceiver` and `/WSPRedirectHandler/*` served by `WSPRedirectHandlerServlet`).
+
++
+When `false` (the default), every request to these endpoints is rejected with HTTP 404. Liberty ID-WSF is a legacy protocol and most deployments do not need it. Set to `true` only if your deployment actively uses Liberty ID-WSF, IDPP, Discovery, AuthnSvc, or Interaction services.
+
++
+The property is read on every request, so the endpoint can be enabled or disabled without restarting OpenAM.
+
++
+Default: `false`
+
+`com.sun.identity.liberty.soap.sensitiveHandlers`::
+Comma-separated list of Liberty SOAP `RequestHandler` keys that MUST NOT accept the unauthenticated `urn:liberty:security:2003-08:null:null` mechanism nor the ANONYMOUS security profile, regardless of binding-level `SupportedAuthenticationMechanisms` or `SecurityProfile` configuration.
+
++
+Empty value disables the additional restriction (not recommended). This setting was introduced as part of the GHSA-p462-xxwx-pqf4 hardening.
+
++
+Default: `idpp,disco,authnsvc,interaction`
 
 `com.sun.identity.monitoring`::
 Whether monitoring is active for OpenAM.
@@ -5978,6 +6088,51 @@ Default: None (do not time out)
 
 +
 For suggested settings, see xref:../admin-guide/chap-tuning.adoc#tuning-ldap-settings-cts["Tuning LDAP CTS and Configuration Store Settings"] in the __Administration Guide__.
+
+`org.openidentityplatform.openam.httponly.allowTokenInBody`::
+Controls whether the SSO token id (`tokenId`) is returned in the `/json/authenticate` response body when the session cookie is HttpOnly.
+
++
+This property is only relevant when the session cookie is HttpOnly (`com.sun.identity.cookie.httponly=true`). By default (`false`), the token is delivered to the browser solely through the `Set-Cookie` header and is not echoed in the response body, so an XSS on the origin cannot read a replayable SSO token (including a freshly upgraded one). The XUI relies on the auto-sent cookie and does not need the token in the body.
+
++
+Set this property to `true` to keep the legacy behaviour of also returning `tokenId` in the response body, for example for non-browser or raw-REST integrations that require both the HttpOnly cookie and the token in the body.
+
++
+When the session cookie is not HttpOnly, `tokenId` is always returned in the response body, regardless of this property.
+
++
+Changes to this property do not take effect until you restart the OpenAM server.
+
++
+Default: `false`
+
+`org.openidentityplatform.openam.idpdiscovery.relaystate.whitelist`::
+Whitelist of URL patterns that the SAML 2.0 and ID-FF IDP discovery reader and writer services (`/saml2reader`, `/saml2writer`, `/idffreader`, `/idffwriter`, served by `CookieReaderServlet` and `CookieWriterServlet`) are allowed to redirect to through the `RelayState` parameter.
+
++
+To prevent these unauthenticated endpoints from being abused as an open redirect (GHSA-2pf8-52jh-5x3m), the value of `RelayState` is validated before any redirect. Relative URLs, and URLs that target the same scheme, host, and port as the incoming request, are always allowed. Any other absolute URL is rejected with HTTP 400 unless it matches one of the patterns configured here.
+
++
+Specify a semicolon-separated list of URL patterns, using `*` as a wildcard, for example `https://sp.example.com:443/*;https://sp2.example.com/*`. Add the return URLs of any service providers that drive discovery from a different host than OpenAM. This setting was introduced as part of the GHSA-2pf8-52jh-5x3m hardening.
+
++
+Default: empty (only relative and same-origin redirect URLs are allowed)
+
+`org.openidentityplatform.openam.smtp.checkServerIdentity`::
+Controls whether OpenAM checks, when it connects to an SMTP mail server over SSL, that the server certificate names the configured mail server host.
+
++
+By default (`true`), a certificate that the JVM trusts but that is issued for another host is rejected, and sending mail fails with `Can't verify identity of server`. This affects every mail OpenAM sends over SSL: password reset, account lockout notification, the Email Service, and one-time passwords sent by email. Earlier releases did not perform this check.
+
++
+To pass the check, configure the mail server host as a name the certificate carries in its subject alternative names or common name. A host given as an IP address matches an IP address subject alternative name on Java 11 as is, and on Java 16 and later only when the JVM is started with `--add-exports java.base/sun.security.util=ALL-UNNAMED`, as the OpenAM Docker image is; otherwise use a host name.
+
++
+Set this property to `false` to accept any certificate the JVM trusts, as earlier releases did, for example while a mail relay's certificate is being reissued. Only `false` turns the check off; an empty or any other value keeps it.
+
++
+Default: `true`
 
 `securidHelper.ports`::
 Port on which SecurID daemon listens.

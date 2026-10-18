@@ -24,7 +24,7 @@
  *
  * $Id: FSTerminationRequestServlet.java,v 1.4 2008/06/25 05:47:04 qcheng Exp $
  *
- * Portions Copyrighted 2025 3A Systems LLC.
+ * Portions Copyrighted 2025-2026 3A Systems LLC.
  */
 
 
@@ -290,8 +290,13 @@ public class FSTerminationRequestServlet extends HttpServlet {
             return;
         }
 
+        // This endpoint is unauthenticated and defederates the user named by an
+        // opaque handle in the request, so the signature is what identifies the
+        // caller: verify it unless a deployment has explicitly opted out. Gating
+        // this on isSigningOn() alone let an unsigned request through by
+        // default, since signing is off on a stock install.
         boolean bVerify = true;
-        if (FSServiceUtils.isSigningOn()) {                        
+        if (FSServiceUtils.isSignatureVerificationRequired()) {
             try {
                 if (remoteDesc != null) {
                     FSUtils.debug.message("Calling verifyTerminationSignature");
@@ -403,7 +408,8 @@ public class FSTerminationRequestServlet extends HttpServlet {
      * @param isIDP whether the remote provider is an IDP or not
      * @return <code>true</code> if signatre is valid; <code>false</code>
      *  otherwise.
-     * @exception SAMLException, FSException if an error occurred during the
+     * @exception SAMLException if an error occurred during the
+     * @exception FSException if an error occurred during the
      *  process
      */
     private boolean verifyTerminationSignature(

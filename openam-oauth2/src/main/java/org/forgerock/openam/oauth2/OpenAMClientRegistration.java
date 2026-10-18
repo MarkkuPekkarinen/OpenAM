@@ -13,6 +13,7 @@
  *
  * Copyright 2014-2016 ForgeRock AS.
  * Portions Copyrighted 2015 Nomura Research Institute, Ltd.
+ * Portions copyright 2026 3A Systems LLC.
  */
 
 package org.forgerock.openam.oauth2;
@@ -54,10 +55,12 @@ import org.forgerock.http.util.MultiValueMap;
 import org.forgerock.jaspi.modules.openid.exceptions.FailedToLoadJWKException;
 import org.forgerock.jaspi.modules.openid.exceptions.OpenIdConnectVerificationException;
 import org.forgerock.jaspi.modules.openid.helpers.JWKSetParser;
+import org.forgerock.jaspi.modules.openid.resolvers.JWKOpenIdResolverImpl;
 import org.forgerock.jaspi.modules.openid.resolvers.OpenIdResolver;
 import org.forgerock.jaspi.modules.openid.resolvers.SharedSecretOpenIdResolverImpl;
 import org.forgerock.jaspi.modules.openid.resolvers.service.OpenIdResolverService;
 import org.forgerock.json.jose.exceptions.JweException;
+import org.forgerock.json.jose.exceptions.JwsException;
 import org.forgerock.json.jose.jwe.EncryptionMethod;
 import org.forgerock.json.jose.jwe.JweAlgorithm;
 import org.forgerock.json.jose.jwk.JWKSet;
@@ -92,7 +95,15 @@ import com.sun.identity.shared.encode.Base64;
  */
 public class OpenAMClientRegistration implements OpenIdConnectClientRegistration {
 
+    /** Default of com.forgerock.openam.oauth2provider.idTokenSignedResponseAlg in AgentService.xml. */
+    private static final String ID_TOKEN_SIGNED_RESPONSE_ALG_DEFAULT = "HS256";
+
     private static final String DELIMITER = "\\|";
+
+    /** Read/connect timeouts (ms) used when fetching a client's {@code jwks_uri}.
+     *  Mirrors the values previously configured in {@code OAuth2GuiceModule}. */
+    private static final int JWKS_URI_READ_TIMEOUT_MS = 3000;
+    private static final int JWKS_URI_CONNECT_TIMEOUT_MS = 3000;
     private static final Comparator<? super String[]> I18N_SPECIFICITY_COMPARATOR = new Comparator<String[]>() {
         @Override
         public int compare(String[] o1, String[] o2) {
@@ -505,10 +516,11 @@ public class OpenAMClientRegistration implements OpenIdConnectClientRegistration
         } catch (Exception e) {
             throw Utils.createException(OAuth2Constants.OAuth2Client.IDTOKEN_SIGNED_RESPONSE_ALG, e, logger);
         }
-        if (set.iterator().hasNext()){
-            return set.iterator().next();
-        }
-        return null;
+        // AgentsRepo reads agent attributes without schema defaults, so a client created through
+        // the realm-config REST endpoint or ssoadm may have nothing persisted here. Fall back to
+        // the same default the schema, the console and dynamic registration use.
+        final String algorithm = CollectionUtils.getFirstItem(set);
+        return StringUtils.isEmpty(algorithm) ? ID_TOKEN_SIGNED_RESPONSE_ALG_DEFAULT : algorithm;
     }
 
     @Override
@@ -645,12 +657,28 @@ public class OpenAMClientRegistration implements OpenIdConnectClientRegistration
 
     @Override
     public boolean verifyJwtIdentity(final OAuth2Jwt jwt) {
-        final JwsAlgorithm signatureAlgorithm = JwsAlgorithm.valueOf(getIDTokenSignedResponseAlgorithm());
+        // The client signed this JWT (client_secret_jwt, private_key_jwt, jwt-bearer), so the JWS
+        // header states how; id_token_signed_response_alg only describes the ID tokens we issue.
+        // HMAC verification uses the client secret only and the asymmetric branch the client's
+        // registered keys only, so the header cannot steer one key type into the other's verifier.
+        // An algorithm outside the JwsAlgorithm enum (including the wire spelling "none") is null.
+        final JwsAlgorithm signatureAlgorithm = jwt.getSigningAlgorithm();
+        if (signatureAlgorithm == null || signatureAlgorithm.getAlgorithmType() == JwsAlgorithmType.NONE) {
+            return false;
+        }
         if (signatureAlgorithm.getAlgorithmType() == JwsAlgorithmType.HMAC) {
             return verifyJwtBySharedSecret(jwt);
         } else {
+            // Any client_id can be sent an assertion with this alg, so what the client has (not)
+            // registered decides between invalid_client and server_error: no key location, no key
+            // material behind it, or a key that cannot verify this alg is false; only failures to
+            // read the registration or fetch the JWKS are server errors.
+            final Client.PublicKeySelector selector = getClientPublicKeySelector();
+            if (selector == null) {
+                return false;
+            }
             try {
-                switch (getClientPublicKeySelector()) {
+                switch (selector) {
                     case JWKS:
                         return byJWKs(jwt);
                     case JWKS_URI:
@@ -658,10 +686,36 @@ public class OpenAMClientRegistration implements OpenIdConnectClientRegistration
                     default:
                         return byX509Key(jwt);
                 }
+            } catch (JwsException | IllegalArgumentException e) {
+                // Wrong key type, an alg the key cannot verify (RSA key vs. ES256, a symmetric key
+                // served at jwks_uri) or a signature the key cannot even parse (JwsVerifyingException,
+                // RSA: wrong length): the client cannot be verified with what it registered. Message
+                // level, so a client that stops authenticating after a key rotation leaves a trace
+                // without an error and a stack trace per unauthenticated request.
+                if (logger.messageEnabled()) {
+                    logger.message("Client {} assertion with alg {} cannot be verified with its registered key: {}",
+                            getClientId(), signatureAlgorithm, e.toString());
+                }
+                return false;
             } catch (Exception e) {
                 throw Utils.createException("Client Bearer Jwt Public key", e, logger);
             }
         }
+    }
+
+    @Override
+    public boolean verifyIdTokenIdentity(final OAuth2Jwt idToken) {
+        // We issued the ID token with id_token_signed_response_alg, so the header must say so;
+        // the algorithm, and hence the key the token is verified with, is not the presenter's to pick.
+        // idTokenSignedResponseAlg is a free-text attribute; StatefulTokenStore upper-cases it when
+        // issuing, so the same spelling verifies, and a value we could not have issued with is not ours.
+        final JwsAlgorithm configured;
+        try {
+            configured = JwsAlgorithm.valueOf(getIDTokenSignedResponseAlgorithm().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
+        return idToken.getSigningAlgorithm() == configured && verifyJwtIdentity(idToken);
     }
 
     @Override
@@ -670,8 +724,13 @@ public class OpenAMClientRegistration implements OpenIdConnectClientRegistration
     }
 
     private boolean verifyJwtBySharedSecret(final OAuth2Jwt jwt) {
+        final String clientSecret = getClientSecret();
+        if (StringUtils.isEmpty(clientSecret)) {
+            // A public client has no secret to verify an HMAC assertion with.
+            return false;
+        }
         final String issuer = jwt.getSignedJwt().getClaimsSet().getIssuer();
-        OpenIdResolver resolver = new SharedSecretOpenIdResolverImpl(issuer, getClientSecret());
+        OpenIdResolver resolver = new SharedSecretOpenIdResolverImpl(issuer, clientSecret);
         try {
             resolver.validateIdentity(jwt.getSignedJwt());
             return jwt.isContentValid() && jwt.isIntendedForAudience(getClientId());
@@ -685,9 +744,8 @@ public class OpenAMClientRegistration implements OpenIdConnectClientRegistration
         Set<String> set = amIdentity.getAttribute(OAuth2Constants.OAuth2Client.JWKS);
 
         final String jwkSetStr = CollectionUtils.getFirstItem(set);
-        if (jwkSetStr == null) {
-            throw OAuthProblemException.OAuthError.SERVER_ERROR.handle(Request.getCurrent(),
-                    "No Client Bearer JWK set.");
+        if (StringUtils.isEmpty(jwkSetStr)) {
+            return false;
         }
 
         final JWKSet jwkSet = new JWKSet(JsonValueBuilder.toJsonValue(jwkSetStr)
@@ -698,7 +756,9 @@ public class OpenAMClientRegistration implements OpenIdConnectClientRegistration
 
         final Key key = jwkMap.get(jwt.getSignedJwt().getHeader().getKeyId());
 
-        return key != null && jwt.isValid(getSigningHandlerForKey(key));
+        // Only asymmetric algorithms reach this branch; an oct JWK would be handed to an HMAC
+        // handler, which cannot verify them and would surface as a server error.
+        return key != null && !(key instanceof SecretKey) && jwt.isValid(getSigningHandlerForKey(key));
     }
 
     /**
@@ -724,26 +784,77 @@ public class OpenAMClientRegistration implements OpenIdConnectClientRegistration
     private boolean byJWKsURI(OAuth2Jwt jwt) throws IdRepoException, SSOException, MalformedURLException {
         final Set<String> set = amIdentity.getAttribute(OAuth2Constants.OAuth2Client.JWKS_URI);
 
-        if (set == null || set.isEmpty()) {
-            throw OAuthProblemException.OAuthError.SERVER_ERROR.handle(Request.getCurrent(),
-                    "No Client Bearer JWKs_URI set.");
+        // The schema default of publicKeyLocation is jwks_uri, so a client created through the
+        // console or ssoadm typically carries the selector and no URI until one is configured.
+        final String url = CollectionUtils.getFirstItem(set);
+        if (StringUtils.isEmpty(url)) {
+            return false;
         }
 
-        final String url = set.iterator().next();
+        // GHSA-f2cx-463q-7m2c: the resolver cache MUST be keyed by something tied to the
+        // client registration, not by the attacker-controlled JWT 'iss' claim. Otherwise a
+        // resolver seeded by one client (with its own keys) can be reused to validate a
+        // forged assertion submitted on behalf of a different client that shares the same
+        // 'iss'.
+        //
+        // We deliberately bypass the singleton OpenIdResolverService here and keep our own
+        // process-wide cache keyed by (clientId | jwks_uri). The shared service used
+        // its single string argument as BOTH the map key and the OpenIdResolver's bound
+        // issuer (which BaseOpenIdResolver.verifyIssuer then compares against jwt.iss).
+        // Storing 'clientId|url' as the bound issuer would break every legitimate
+        // assertion, so we instead construct JWKOpenIdResolverImpl directly with the
+        // registration's client_id as the bound issuer. This:
+        //   * lets legitimate assertions (iss == sub == client_id, enforced upstream by
+        //     ClientCredentialsReader.verifyJwtBearer) pass verifyIssuer;
+        //   * provides defence in depth: even if a future caller reached this method
+        //     without the upstream iss==sub guard, verifyIssuer would still reject any
+        //     assertion whose iss does not match the registered client_id.
+        final String cacheKey = getClientId() + "|" + url;
+        final String boundIssuer = getClientId();
 
         try {
-            if (resolverService.getResolverForIssuer(jwt.getSignedJwt().getClaimsSet().getIssuer()) == null) {
-                boolean success =
-                        resolverService.configureResolverWithJWK(jwt.getSignedJwt().getClaimsSet().getIssuer(),
-                                new URL(url));
-                if (!success) {
+            OpenIdResolver resolver = ClientJwksResolverCache.get(cacheKey);
+            if (resolver == null) {
+                // A fetch that failed a moment ago is not retried on every inbound request: this
+                // method needs no authentication, and a failed fetch caches nothing, so retrying
+                // per request turns an unreachable, blocked or deliberately slow jwks_uri into a
+                // request amplifier (GHSA-g7cv-hh35-cc7c). The client sees the same error either
+                // way.
+                if (ClientJwksResolverCache.isFetchFailureRemembered(cacheKey)) {
+                    logger.warning("Not re-fetching JWKs for client '" + getClientId() + "' from "
+                            + url + ": the previous attempt failed less than "
+                            + ClientJwksResolverCache.FAILURE_TTL_MS + "ms ago");
                     throw OAuthProblemException.OAuthError.SERVER_ERROR.handle(Request.getCurrent(),
-                            "Unable to configure internal JWK resolver service.");
+                            "Unable to load JWKs from registered jwks_uri.");
+                }
+                try {
+                    // SsrfSafeJwksHttpClient rather than the stock SimpleHTTPClient that the
+                    // (int, int) constructor would install: the stock one opens whatever URL it is
+                    // given, including file:// and friends, and lets HttpURLConnection chase
+                    // redirects into internal addresses (GHSA-g7cv-hh35-cc7c). Guarding the fetch
+                    // rather than only the registration also covers clients registered before that
+                    // check existed and clients configured through the console, ssoadm or the
+                    // agent REST API — and this method is reachable without authentication, an
+                    // unsigned client_assertion or an id_token at /oauth2/idtokeninfo being enough.
+                    // The resolver holds on to this client for the key reloads it performs when a
+                    // kid is unknown, so those stay guarded too.
+                    resolver = ClientJwksResolverCache.putIfAbsent(cacheKey,
+                            new JWKOpenIdResolverImpl(boundIssuer, new URL(url),
+                                    new SsrfSafeJwksHttpClient(JWKS_URI_READ_TIMEOUT_MS,
+                                            JWKS_URI_CONNECT_TIMEOUT_MS)));
+                } catch (FailedToLoadJWKException e) {
+                    ClientJwksResolverCache.rememberFetchFailure(cacheKey);
+                    // Log the URL and root-cause server-side; the OAuth2 error response only
+                    // carries a generic message so the configured jwks_uri and any
+                    // stack-derived detail from e.getMessage() are not echoed back to the
+                    // client.
+                    logger.error("Unable to load JWKs for client '" + getClientId()
+                            + "' from " + url, e);
+                    throw OAuthProblemException.OAuthError.SERVER_ERROR.handle(Request.getCurrent(),
+                            "Unable to load JWKs from registered jwks_uri.");
                 }
             }
-
-            resolverService.getResolverForIssuer(
-                    jwt.getSignedJwt().getClaimsSet().getIssuer()).validateIdentity(jwt.getSignedJwt());
+            resolver.validateIdentity(jwt.getSignedJwt());
         } catch (OpenIdConnectVerificationException e) {
             return false;
         }
@@ -756,12 +867,10 @@ public class OpenAMClientRegistration implements OpenIdConnectClientRegistration
 
         Set<String> set = amIdentity.getAttribute(OAuth2Constants.OAuth2Client.CLIENT_JWT_PUBLIC_KEY);
 
-        if (set == null || set.isEmpty()) {
-            throw OAuthProblemException.OAuthError.SERVER_ERROR.handle(Request.getCurrent(),
-                    "No Client Bearer Jwt Public key certificate set");
+        String encodedCert = CollectionUtils.getFirstItem(set);
+        if (StringUtils.isEmpty(encodedCert)) {
+            return false;
         }
-
-        String encodedCert = set.iterator().next();
         X509Certificate certificate = pemDecoder.decodeX509Certificate(encodedCert);
 
         return jwt.isValid(signingManager.newRsaSigningHandler(certificate.getPublicKey()));
@@ -780,7 +889,9 @@ public class OpenAMClientRegistration implements OpenIdConnectClientRegistration
         } catch (IdRepoException | SSOException e) {
             throw Utils.createException(OAuth2Constants.OAuth2Client.PUBLIC_KEY_SELECTOR, e, logger);
         }
-        return Client.PublicKeySelector.fromString(set.iterator().next());
+        // As with idTokenSignedResponseAlg, the schema default is not applied to a client created
+        // through the realm-config REST endpoint or ssoadm; fromString() is null for an unknown value.
+        return Client.PublicKeySelector.fromString(CollectionUtils.getFirstItem(set));
     }
 
     /**

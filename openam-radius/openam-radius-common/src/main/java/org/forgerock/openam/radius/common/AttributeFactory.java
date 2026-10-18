@@ -29,6 +29,7 @@
 /*
  * Portions Copyrighted 2011 ForgeRock AS.
  * Portions Copyrighted 2015 Intellectual Reserve, Inc (IRI)
+ * Portions Copyrighted 2026 3A Systems LLC.
  */
 package org.forgerock.openam.radius.common;
 
@@ -95,7 +96,7 @@ public final class AttributeFactory {
      *            the raw octets received in a radius packet on the wire for the attribute including leading attribute
      *            type code octet and length octet.
      * @return the corresponding subclass of the {@link org.forgerock.openam.radius.common.Attribute} class or an
-     *         instance of the {@link com.sun.identity.authentication.modules.radius.client.UnknownAttribute} class if
+     *         instance of the {@code com.sun.identity.authentication.modules.radius.client.UnknownAttribute} class if
      *         the field type is unrecognized and hence not supported.
      */
     public static Attribute createAttribute(byte[] data) {
@@ -188,6 +189,8 @@ public final class AttributeFactory {
                 return new PortLimitAttribute(data);
             case LOGIN_LAT_PORT: // 63
                 return new LoginLATPortAttribute(data);
+            case MESSAGE_AUTHENTICATOR: // 80
+                return new MessageAuthenticatorAttribute(data);
             default:
                 return new UnknownAttribute(data);
             }

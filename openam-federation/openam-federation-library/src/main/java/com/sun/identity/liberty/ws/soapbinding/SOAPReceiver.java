@@ -24,11 +24,12 @@
  *
  * $Id: SOAPReceiver.java,v 1.3 2008/06/25 05:47:23 qcheng Exp $
  *
+ * Portions Copyrighted 2026 3A Systems, LLC
  */
 
 /*
  * Portions Copyrighted 2013 ForgeRock, Inc.
- * Portions Copyrighted 2025 3A Systems LLC.
+ * Portions Copyrighted 2025-2026 3A Systems LLC.
  */
 
 package com.sun.identity.liberty.ws.soapbinding; 
@@ -60,7 +61,12 @@ import org.w3c.dom.Element;
 import com.sun.identity.liberty.ws.security.SecurityUtils;
 import com.sun.identity.liberty.ws.common.LogUtil;
 import com.sun.identity.saml.common.SAMLUtils;
+import com.sun.identity.shared.configuration.SystemPropertiesManager;
 import org.forgerock.openam.utils.ClientUtils;
+
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * The <code>SOAPReceiver</code> class defines a SOAP Receiver which supports
@@ -69,7 +75,7 @@ import org.forgerock.openam.utils.ClientUtils;
  * binding SM schema and store in a static HashMap. Each 
  * <code>RequestHandler</code> is associated with a unique key. When a web
  * service client uses <code>Client</code> to send request, the SOAP URL must
- * be in the format of 'this_servlet_URL>/key'. The <code>SOAPReceiver</code>
+ * be in the format of {@code 'this_servlet_URL>/key'}. The <code>SOAPReceiver</code>
  * will parse the SOAP URL to get the key and use it to find corresponding
  * <code>RequestHandler</code>. After it is done processing, it will invoke
  * <code>RequestHandler.processRequest</code> to let web service to do further
@@ -79,6 +85,56 @@ import org.forgerock.openam.utils.ClientUtils;
 public class SOAPReceiver extends HttpServlet {
 
      private static MessageFactory msgFactory = null;
+
+    /**
+     * System property: master kill-switch for the legacy Liberty ID-WSF
+     * SOAP receiver. When set to anything other than "true" (default),
+     * /Liberty/* will reject every request with HTTP 404. Liberty WSF is
+     * a legacy protocol; most deployments do not need it.
+     *
+     * Override:  -Dcom.sun.identity.liberty.enabled=true
+     */
+    private static final String PROP_LIBERTY_ENABLED =
+            "com.sun.identity.liberty.enabled";
+
+    /**
+     * System property: comma-separated list of RequestHandler keys that
+     * MUST NOT accept the unauthenticated null:null mechanism nor the
+     * ANONYMOUS security profile, regardless of binding-level
+     * SupportedAuthenticationMechanisms / SecurityProfile config.
+     *
+     * Default: idpp,disco,authnsvc,interaction
+     */
+    private static final String PROP_SENSITIVE_HANDLERS =
+            "com.sun.identity.liberty.soap.sensitiveHandlers";
+    private static final String DEFAULT_SENSITIVE_HANDLERS =
+            "idpp,disco,authnsvc,interaction";
+
+    /** Liberty "no auth, no client cred" mechanism URI. */
+    private static final String AUTHN_MECH_NULL_NULL =
+            "urn:liberty:security:2003-08:null:null";
+
+    private static Set<String> getSensitiveHandlers() {
+        String raw = SystemPropertiesManager.get(
+                PROP_SENSITIVE_HANDLERS, DEFAULT_SENSITIVE_HANDLERS);
+        if (raw == null || raw.isEmpty()) {
+            return Collections.emptySet();
+        }
+        Set<String> set = new HashSet<String>();
+        for (String s : raw.split(",")) {
+            String t = s.trim();
+            if (!t.isEmpty()) {
+                set.add(t);
+            }
+        }
+        return set;
+    }
+
+    private static boolean isLibertyEnabled() {
+        // default = false: legacy endpoint is OFF unless explicitly enabled.
+        return Boolean.parseBoolean(
+                SystemPropertiesManager.get(PROP_LIBERTY_ENABLED, "false"));
+    }
 
      /**
       * Initializes the Servlet.
@@ -112,6 +168,18 @@ public class SOAPReceiver extends HttpServlet {
      @Override
      public void doPost(HttpServletRequest request,HttpServletResponse response)
                         throws IOException, ServletException {
+         // Level 5: master kill-switch. Read on every request so that the
+         // property can be flipped without restart.
+         if (!isLibertyEnabled()) {
+             if (Utils.debug.warningEnabled()) {
+                 Utils.debug.warning("SOAPReceiver.doPost: Liberty ID-WSF "
+                         + "endpoint disabled (" + PROP_LIBERTY_ENABLED
+                         + "=false). Rejecting request from "
+                         + ClientUtils.getClientIPAddress(request));
+             }
+             response.sendError(HttpServletResponse.SC_NOT_FOUND);
+             return;
+         }
          try {
              MimeHeaders mimeHeaders = SAMLUtils.getMimeHeaders(request);
              ServletInputStream sInputStream = request.getInputStream();
@@ -217,6 +285,29 @@ public class SOAPReceiver extends HttpServlet {
                               .contains(authMech)) {
                         return FormSOAPError("Server", "unsupportedAuthMech",
                                              req);
+                    }
+
+                    // Level 1: for sensitive handlers, refuse the
+                    // null:null mechanism AND any ANONYMOUS security
+                    // profile, regardless of binding-level config.
+                    Set<String> sensitive = getSensitiveHandlers();
+                    if (sensitive.contains(key)) {
+                        if (AUTHN_MECH_NULL_NULL.equals(authMech)) {
+                            Utils.debug.warning("SOAPReceiver.onMessage: "
+                                    + "rejecting null:null for sensitive "
+                                    + "handler '" + key + "' from "
+                                    + remoteAddr);
+                            return FormSOAPError("Server",
+                                    "unsupportedAuthMech", req);
+                        }
+                        if (req.getSecurityProfileType() == Message.ANONYMOUS) {
+                            Utils.debug.warning("SOAPReceiver.onMessage: "
+                                    + "rejecting ANONYMOUS security profile "
+                                    + "for sensitive handler '" + key
+                                    + "' from " + remoteAddr);
+                            return FormSOAPError("Server",
+                                    "unsupportedAuthMech", req);
+                        }
                     }
 
                     WebServiceAuthenticator wsAuthenticator =

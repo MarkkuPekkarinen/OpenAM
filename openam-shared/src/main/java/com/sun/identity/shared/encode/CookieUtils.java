@@ -25,7 +25,7 @@
  * $Id: CookieUtils.java,v 1.6 2009/10/02 00:08:26 ericow Exp $
  *
  * Portions Copyrighted 2014-2016 ForgeRock AS.
- * Portions Copyrighted 2017-2025 3A Systems, LLC.
+ * Portions Copyrighted 2017-2026 3A Systems, LLC.
  */
 
 package com.sun.identity.shared.encode;
@@ -36,8 +36,6 @@ import com.sun.identity.shared.Constants;
 import com.sun.identity.shared.configuration.SystemPropertiesManager;
 import com.sun.identity.shared.debug.Debug;
 
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.text.SimpleDateFormat;
 import java.util.Collection;
 import java.util.Collections;
@@ -70,6 +68,9 @@ public class CookieUtils {
         (SystemPropertiesManager.get(Constants.AM_COOKIE_HTTPONLY).
             equalsIgnoreCase("true"));
 
+    static boolean httpOnlyAllowTokenInBody =
+        SystemPropertiesManager.getAsBoolean(Constants.AM_COOKIE_HTTPONLY_ALLOW_TOKEN_IN_BODY, false);
+
     static String cookieSameSite = SystemPropertiesManager.get(
             Constants.AM_COOKIE_SAMESITE);
 
@@ -91,17 +92,6 @@ public class CookieUtils {
     private static int defAge = -1;
 
     static Debug debug = Debug.getInstance("amCookieUtils");
-    private static final Method setHttpOnlyMethod;
-
-    static {
-        Method method = null;
-        try {
-            method = Cookie.class.getMethod("setHttpOnly", boolean.class);
-        } catch (NoSuchMethodException nsme) {
-            debug.message("This is not a Java EE 6+ container, Cookie#setHttpOnly(boolean) is not available");
-        }
-        setHttpOnlyMethod = method;
-    }
 
     /**
      * Gets property value of "com.iplanet.am.cookie.name"
@@ -172,6 +162,21 @@ public class CookieUtils {
      */
     public static boolean isCookieHttpOnly() {
         return cookieHttpOnly;
+    }
+
+    /**
+     * Returns whether the SSO token id may be returned in the authenticate response body while the
+     * session cookie is {@code HttpOnly}.
+     * <p>
+     * Controlled by {@code org.openidentityplatform.openam.httponly.allowTokenInBody} and only
+     * relevant when {@link #isCookieHttpOnly()} is {@code true}. Defaults to {@code false}: the token
+     * is delivered only via the {@code Set-Cookie} header and is not echoed in the body. Set to
+     * {@code true} for integrations that need both the {@code HttpOnly} cookie and the body token.
+     *
+     * @return {@code true} if the token may be returned in the body in HttpOnly mode.
+     */
+    public static boolean isHttpOnlyAllowTokenInBody() {
+        return httpOnlyAllowTokenInBody;
     }
 
     /**
@@ -391,7 +396,15 @@ public class CookieUtils {
             cookie.setDomain(domain);
         }
 
-        cookie.setSecure(isCookieSecure());
+        // The flags are set from creation so that a cookie handed straight to
+        // response.addCookie carries them as well as one that goes through
+        // addCookieToResponse.
+        if (isCookieSecure()) {
+            cookie.setSecure(true);
+        }
+        if (isCookieHttpOnly()) {
+            cookie.setHttpOnly(true);
+        }
 
         return cookie;
     }
@@ -415,30 +428,22 @@ public class CookieUtils {
 
     /**
      * Add cookie to HttpServletResponse as custom header
-     * 
-     * @param response
-     * @param cookie 
+     *
+     * @param response the HttpServletResponse to add the cookie header to
+     * @param cookie the cookie to add to the response
      */
     public static void addCookieToResponse(HttpServletResponse response, Cookie cookie) {
         if (response==null || cookie == null) {
             return;
         }
-        if (!isCookieHttpOnly() && getCookieSameSite() == null) {
+        if (getCookieSameSite() == null) {
+            if (isCookieHttpOnly()) {
+                cookie.setHttpOnly(true);
+            }
             response.addCookie(cookie);
             return;
         }
-
-        if (setHttpOnlyMethod != null && getCookieSameSite() == null) {
-            try {
-                setHttpOnlyMethod.invoke(cookie, true);
-                response.addCookie(cookie);
-                return;
-            } catch (IllegalAccessException iae) {
-                debug.warning("IllegalAccessException while trying to add HttpOnly cookie: " + iae.getMessage());
-            } catch (InvocationTargetException ite) {
-                debug.error("An error occurred while trying to add HttpOnly cookie", ite);
-            }
-        }
+        // The servlet Cookie has no SameSite attribute: write the header by hand.
 
         StringBuilder sb = new StringBuilder(150);
         sb.append(cookie.getName()).append("=").append(cookie.getValue());

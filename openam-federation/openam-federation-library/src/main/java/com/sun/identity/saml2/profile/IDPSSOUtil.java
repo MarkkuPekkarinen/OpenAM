@@ -26,7 +26,7 @@
  *
  * Portions Copyrighted 2010-2016 ForgeRock AS.
  * Portions Copyrighted 2013 Nomura Research Institute, Ltd
- * Portions Copyrighted 2025 3A Systems LLC.
+ * Portions Copyrighted 2025-2026 3A Systems LLC.
  * Portions Copyrighted 2025 OSSTech Corporation
  */
 
@@ -1031,9 +1031,10 @@ public class IDPSSOUtil {
                 id = spEntityID;
             }
             boolean found = false;
-            for (NameIDandSPpair nameIDandSPpair : list) {
-                if (nameIDandSPpair.getSPEntityID().equals(id)) {
+            for (int i = 0; i < list.size(); i++) {
+                if (list.get(i).getSPEntityID().equals(id)) {
                     found = true;
+                    list.set(i, pair);
                     break;
                 }
             }
@@ -2912,7 +2913,7 @@ public class IDPSSOUtil {
      * @param realm       the realm name.
      * @param idpEntityID the identity provider entity identifier
      * @param response    the SAMLv2 <code>Response</code>
-     * @throws <code>SAML2Exception</code> if there is an
+     * @throws SAML2Exception if there is an
      *                                     error signing the response.
      */
     private static void signResponse(String realm, String idpEntityID,

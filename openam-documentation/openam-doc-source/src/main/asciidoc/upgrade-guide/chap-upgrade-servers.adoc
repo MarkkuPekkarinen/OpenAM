@@ -12,13 +12,13 @@
   information: "Portions copyright [year] [name of copyright owner]".
  
   Copyright 2017 ForgeRock AS.
-  Portions Copyright 2024-2025 3A Systems LLC.
+  Portions Copyright 2024-2026 3A Systems LLC.
 ////
 
 :figure-caption!:
 :example-caption!:
 :table-caption!:
-:openam-version: 15.1.3
+:openam-version: x.y.z
 
 
 [#chap-upgrade-servers]
@@ -40,6 +40,54 @@ Make sure you try upgrading OpenAM in a test environment before applying the upg
 [IMPORTANT]
 ====
 If you are upgrading from an unsupported version of OpenAM to a later version, you must first upgrade to a supported version. In some cases, you may need to upgrade again depending on the upgrade path.
+====
+
+[IMPORTANT]
+====
+Starting with this release the legacy Liberty ID-WSF SOAP endpoints (`/Liberty/*` and `/WSPRedirectHandler/*`) are *disabled by default* as part of the GHSA-p462-xxwx-pqf4 hardening. Existing deployments that rely on Liberty ID-WSF, IDPP, Discovery, AuthnSvc, or Interaction services must explicitly opt in by setting the advanced server property `com.sun.identity.liberty.enabled=true`.
+
+Two related advanced server properties were also introduced and now default to a fail-close behaviour:
+
+* `com.sun.identity.liberty.soap.sensitiveHandlers` (default `idpp,disco,authnsvc,interaction`) — list of SOAP RequestHandler keys that reject the unauthenticated `null:null` mechanism and the ANONYMOUS security profile.
+* `com.sun.identity.liberty.allowAnonymousWSC` (default `false`) — restores the legacy minting of an anonymous Web Service Client session for null-family mechanisms without a client credential.
+
+If your deployment depends on the previous (insecure) behaviour, review and adjust these properties before promoting the upgrade. See xref:../reference/chap-config-ref.adoc#servers-advanced-configuration["Advanced"] in the __Reference__.
+====
+
+[IMPORTANT]
+====
+Starting with this release the SAML 2.0 and ID-FF IDP discovery reader and writer endpoints (`/saml2reader`, `/saml2writer`, `/idffreader`, `/idffwriter`) validate the `RelayState` redirect URL as part of the GHSA-2pf8-52jh-5x3m hardening. Relative and same-origin redirect URLs continue to work unchanged. Absolute URLs that point to a *different* host are now rejected with HTTP 400 unless they match the new advanced server property `org.openidentityplatform.openam.idpdiscovery.relaystate.whitelist` (a semicolon-separated list of URL patterns, empty by default).
+
+If your common-domain discovery deployment hosts service providers on a different host than OpenAM, add their return URLs to this property before promoting the upgrade. See xref:../reference/chap-config-ref.adoc#servers-advanced-configuration["Advanced"] in the __Reference__.
+====
+
+[IMPORTANT]
+====
+Starting with this release the legacy Liberty ID-FF (Liberty Alliance 1.x) SOAP endpoint (`/SOAPReceiver/*`, served by `FSSOAPReceiver`) is *disabled by default* as part of the GHSA-qcqm-7432-wg7r hardening. Existing deployments that actively use Liberty ID-FF federation must explicitly opt in by setting the advanced server property `com.sun.identity.federation.services.soap.enabled=true`. The kill-switch disables the whole endpoint, including ID-FF browser-artifact single sign-on and LECP, not only the state-changing operations. In a multi-server site set this property on *every* server: cross-node single logout forwards the logout SOAP message to a peer server's own `/SOAPReceiver`, so a node where the endpoint is still disabled would reject the forwarded request with HTTP 404 and single logout would fail.
+
+Also starting with this release, inbound ID-FF state-changing and disclosure operations (federation termination, name registration, single logout, and name-identifier mapping) require a verified XML signature by default (`com.sun.identity.federation.services.requireSignature`, default `true`), even when message signing is otherwise optional. This applies to the SOAP binding *and* to the HTTP-Redirect binding endpoints `/ProcessTermination/*`, `/ProcessLogout/*`, and `/ProcessRegistration/*`, which are reachable without authentication and act on the user named by an opaque handle in the request. Unlike the SOAP endpoint, the redirect binding is not disabled by default, so this change affects any deployment that uses ID-FF over the redirect binding.
+
+*Enable message signing along with it.* OpenAM signs its own outbound ID-FF messages only when `XMLSigningOn` is enabled, and that setting is `false` on a stock installation. If you leave `com.sun.identity.federation.services.requireSignature` at its default without enabling signing, OpenAM's own single logout, federation termination, and name registration messages are sent unsigned and rejected by the receiving provider. Before promoting the upgrade, either:
+
+* set `XMLSigningOn` to `true` under the `sunFAMIDFFConfiguration` service (advanced server property `com.sun.identity.federation.services.signingOn`) and configure a signing certificate alias on every participating hosted provider, with the matching certificate published in the metadata each partner consumes. This setting is now read for each operation, so changing it takes effect without restarting the server; in earlier releases it was cached at startup and a restart was required; or
+
+* set `com.sun.identity.federation.services.requireSignature=false` to restore the previous, insecure behaviour if your federation partners do not sign ID-FF messages.
+
+See xref:../reference/chap-config-ref.adoc#servers-advanced-configuration["Advanced"] in the __Reference__.
+====
+
+[IMPORTANT]
+====
+Starting with this release the OAuth 2.0 authorization endpoint applies the OAuth2 Provider property Code Verifier Parameter Required to every request whose `response_type` includes `code`, as part of the GHSA-5p2f-7vcr-6vfh hardening. Previously the OpenID Connect hybrid flows (`code token`, `code id_token`, and `code id_token token`) escaped the check and were issued authorization codes with no `code_challenge` bound to them. That property is *enabled by default*, so hybrid-flow clients that send no `code_challenge` now fail at `/oauth2/authorize`.
+
+The token endpoint fails closed to match: while the property is enabled, an authorization code that carries no `code_challenge` is rejected at `/oauth2/access_token`. Authorization codes issued before the upgrade, or before the property was turned on, therefore stop being redeemable. The exposure lasts at most one authorization code lifetime (the OAuth2 Provider property Authorization Code Lifetime (seconds), 120 by default), so if in-flight codes matter, leave client traffic redirected elsewhere for that long before promoting the upgrade.
+
+Update hybrid-flow clients to send a `code_challenge` at the authorization endpoint and the matching `code_verifier` at the token endpoint, or disable Code Verifier Parameter Required for the realm. Disabling it never relaxes verification for codes that *were* issued with a challenge. See xref:../reference/chap-config-ref.adoc#oauth2-provider-configuration["OAuth2 Provider"] in the __Reference__.
+====
+
+[IMPORTANT]
+====
+Starting with this release `debugconfig.properties` is validated more strictly. A file with `org.forgerock.openam.debug.rotation=-1`, or with a trailing space after a rotation value next to a suffix that is empty, too coarse or cannot be parsed, is now rejected as a whole: OpenAM prints "'/debugconfig.properties' isn't valid, the default configuration will be used instead" to the standard error output and uses no prefix and no rotation. Leave a rotation value empty to turn that rotation off. Trailing spaces are also removed from the prefix and the suffix, so they no longer appear in debug log file names. See xref:../admin-guide/chap-monitoring.adoc#log-rotate-debug["Rotating Debug Logs"] in the __Administration Guide__.
 ====
 
 [#upgrade-server]

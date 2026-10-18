@@ -12,7 +12,7 @@
   information: "Portions copyright [year] [name of copyright owner]".
  
   Copyright 2017 ForgeRock AS.
-  Portions Copyright 2024 3A Systems LLC.
+  Portions Copyright 2024-2026 3A Systems LLC.
 ////
 
 :figure-caption!:
@@ -43,6 +43,9 @@ If the `Secure` name is included, the cookie can be transferred only over HTTPS.
 
 HttpOnly::
 When the `HttpOnly` name is included, that cookie will not be accessible through JavaScript. According to link:http://tools.ietf.org/html/rfc6265#section-4.1.2.6[RFC 6265, window=\_blank], the noted flag "instructs the user agent to omit the cookie when providing access to cookies via 'non-HTTP' APIs (for example, a web browser API that exposes cookies to scripts)."
+
+SameSite::
+When the `SameSite` name is included, the browser controls whether the cookie is sent on cross-site requests, mitigating cross-site request forgery (CSRF). The value can be `Lax` (sent on top-level navigations), `Strict` (never sent cross-site), or `None` (always sent, and requires the `Secure` attribute). By default, OpenAM ships the `iPlanetDirectoryPro` SSO cookie with `SameSite=Lax`. See `org.openidentityplatform.openam.cookie.samesite` in xref:../reference/chap-config-ref.adoc#chap-config-ref["Configuration Reference"] in the __Reference__.
 
 Expires::
 The lifetime of a cookie can be limited, with an `Expires` name configured with a time, based on UTC (GMT).
@@ -129,11 +132,11 @@ Now that you have read about the SSO process, you should be able to set it up on
 
 . Install OpenAM as described in the xref:../install-guide/index.adoc[Installation Guide]. This procedure uses a Server URL of `\http://openam.example.net:8080/openam`.
 
-. Install the appropriate policy agent, as described in the link:../../../openam-web-policy-agents/web-users-guide/#web-users-guide[OpenAM Web Policy Agent User's Guide, window=\_blank] or the link:../../../openam-jee-policy-agents/jee-users-guide/#jee-users-guide[OpenAM Java EE Policy Agent User's Guide, window=\_blank]. This procedure uses an agent URL of `\http://app.example.net:80`, and an agent name of `webagent1`.
+. Install the appropriate policy agent, as described in the xref:../web-users-guide/index.adoc[OpenAM Web Policy Agent User's Guide] or the xref:../jee-users-guide/index.adoc[OpenAM Java EE Policy Agent User's Guide]. This procedure uses an agent URL of `\http://app.example.net:80`, and an agent name of `webagent1`.
 
 . Make sure that both URLs are configured with IP addresses, as described in xref:../install-guide/chap-install-core.adoc#chap-install-core["Installing OpenAM Core Services"] in the __Installation Guide__.
 
-. Return to the OpenAM server on `\http://openam.example.net:8080/openam`. Log in as the administrative user, normally `amadmin`. To activate and configure the agent, follow the procedure described in the link:../../../openam-web-policy-agents/web-users-guide/#web-users-guide[OpenAM Web Policy Agent User's Guide, window=\_blank] or the link:../../../openam-jee-policy-agents/jee-users-guide/#jee-users-guide[OpenAM Java EE Policy Agent User's Guide, window=\_blank].
+. Return to the OpenAM server on `\http://openam.example.net:8080/openam`. Log in as the administrative user, normally `amadmin`. To activate and configure the agent, follow the procedure described in the xref:../web-users-guide/index.adoc[OpenAM Web Policy Agent User's Guide] or the xref:../jee-users-guide/index.adoc[OpenAM Java EE Policy Agent User's Guide].
 
 . Now you can configure SSO Only mode. In the OpenAM console, click Realms > __Realm Name__ > Agents > `webagent1`. Scroll down to SSO Only Mode and activate the Enabled box.
 

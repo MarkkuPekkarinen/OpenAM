@@ -28,6 +28,7 @@
 
 /**
  * Portions Copyrighted 2014-2016 ForgeRock AS.
+ * Portions Copyrighted 2026 3A Systems LLC.
  */
 package com.sun.identity.shared.debug.file.impl;
 
@@ -44,7 +45,6 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.io.StringWriter;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -142,18 +142,7 @@ public class DebugFileImpl implements DebugFile {
     @Override
     public void writeIt(String prefix, String msg, Throwable th) throws IOException {
 
-        StringBuilder buf = new StringBuilder();
-        buf.append(prefix);
-        buf.append('\n');
-        buf.append(msg);
-        if (th != null) {
-            buf.append('\n');
-            StringWriter stBuf = new StringWriter(DebugConstants.MAX_BUFFER_SIZE_EXCEPTION);
-            PrintWriter stackStream = new PrintWriter(stBuf);
-            th.printStackTrace(stackStream);
-            stackStream.flush();
-            buf.append(stBuf.toString());
-        }
+        String record = DebugRecordFormat.format(prefix, msg, th);
 
         if (isConfigChanged() || !isConfigFileInitialized()) {
             initialize();
@@ -166,7 +155,7 @@ public class DebugFileImpl implements DebugFile {
         fileLock.readLock().lock();
         try {
             if (debugWriter != null) {
-                debugWriter.println(buf.toString());
+                debugWriter.println(record);
             } else {
                 StdDebugFile.printError(prefix, msg, th);
             } 
@@ -195,9 +184,7 @@ public class DebugFileImpl implements DebugFile {
         StringBuilder newFileName = new StringBuilder();
 
         //Set prefix
-        if (configuration.getDebugPrefix() != null) {
-            newFileName.append(configuration.getDebugPrefix());
-        }
+        newFileName.append(configuration.getDebugPrefix());
 
         //Set name
         newFileName.append(fileName);
@@ -235,7 +222,7 @@ public class DebugFileImpl implements DebugFile {
                 fileCreationTime -= fileCreationTime % (1000 * 60);
             }
 
-            nextRotation = fileCreationTime + configuration.getRotationInterval() * 60 * 1000;
+            nextRotation = fileCreationTime + configuration.getRotationInterval() * 60L * 1000;
             boolean directoryAvailable = false;
             String debugDir = debugDirectory.get();
 

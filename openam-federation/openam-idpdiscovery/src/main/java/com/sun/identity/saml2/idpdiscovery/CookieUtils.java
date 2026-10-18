@@ -28,11 +28,14 @@
 
 /**
  * Portions Copyrighted 2013 ForgeRock, Inc.
- * Portions Copyrighted 2025 3A Systems LLC.
+ * Portions Copyrighted 2025-2026 3A Systems LLC.
  */
 package com.sun.identity.saml2.idpdiscovery;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 import java.util.ResourceBundle;
 import java.util.StringTokenizer;
 import jakarta.servlet.http.Cookie;
@@ -45,12 +48,13 @@ import com.sun.identity.shared.Constants;
 import com.sun.identity.shared.configuration.SystemPropertiesManager;
 import com.sun.identity.shared.encode.URLEncDec;
 import com.sun.identity.shared.locale.Locale;
+import org.forgerock.openam.shared.security.whitelist.RedirectUrlValidator;
+import org.forgerock.openam.shared.security.whitelist.ValidDomainExtractor;
 
 
 /**
  * Implements utility methods for handling Cookie.
- * <p>
- */ 
+ */
 
 public class CookieUtils {
     static boolean secureCookie =
@@ -74,6 +78,10 @@ public class CookieUtils {
         SystemProperties.get(IDPDiscoveryConstants.AM_COOKIE_ENCODE).
            equalsIgnoreCase("true"));
 
+    // The preferred IdP list separator as it is written in an unencoded cookie.
+    // A base64 IdP never contains '%', so it cannot be mistaken for part of one.
+    private static final String ESCAPED_SEPARATOR = "%20";
+
     private static int defAge = -1;
     public static Debug debug = Debug.getInstance("libIDPDiscovery");
     // IDP Discovery Resource bundle
@@ -83,6 +91,19 @@ public class CookieUtils {
     // error processing URL, read from system property
     private static String errorUrl = System.getProperty(
         IDPDiscoveryConstants.ERROR_URL_PARAM_NAME);
+
+    // Validates RelayState redirect URLs so the reader/writer discovery
+    // services cannot be abused as an open redirect (GHSA-2pf8-52jh-5x3m).
+    // Relative URLs and the request's own origin are always allowed; any other
+    // absolute URL must match a configured whitelist pattern.
+    private static final RedirectUrlValidator<Collection<String>>
+        REDIRECT_URL_VALIDATOR = new RedirectUrlValidator<Collection<String>>(
+            new ValidDomainExtractor<Collection<String>>() {
+                public Collection<String> extractValidDomains(
+                        Collection<String> configInfo) {
+                    return configInfo;
+                }
+            });
 
     /**
      * Gets property value of "com.iplanet.am.cookie.secure"
@@ -111,6 +132,59 @@ public class CookieUtils {
         return cookieSameSite;
     }
 
+    /**
+     * Returns the configured RelayState redirect whitelist patterns.
+     *
+     * @return the list of configured URL patterns, never <code>null</code>.
+     */
+    private static List<String> getRelayStateWhitelist() {
+        List<String> patterns = new ArrayList<String>();
+        String configured = SystemProperties.get(
+            IDPDiscoveryConstants.IDPDISCOVERY_RELAYSTATE_WHITELIST);
+        if (configured != null) {
+            StringTokenizer st = new StringTokenizer(configured, ";");
+            while (st.hasMoreTokens()) {
+                String pattern = st.nextToken().trim();
+                if (pattern.length() > 0) {
+                    patterns.add(pattern);
+                }
+            }
+        }
+        return patterns;
+    }
+
+    /**
+     * Validates a RelayState redirect URL before it is used in a redirect.
+     * Relative URLs and URLs targeting the same scheme/host/port as the
+     * incoming request are always allowed. Any other absolute URL is only
+     * permitted when it matches a pattern configured through the
+     * {@link IDPDiscoveryConstants#IDPDISCOVERY_RELAYSTATE_WHITELIST} property.
+     * This prevents the IDP discovery reader/writer services from being abused
+     * as an open redirect (GHSA-2pf8-52jh-5x3m).
+     *
+     * @param request the incoming request, used to derive the local origin.
+     * @param url the RelayState URL to validate.
+     * @return <code>true</code> if the URL is safe to redirect to.
+     */
+    public static boolean isRedirectUrlValid(HttpServletRequest request,
+            String url) {
+        if (url == null || url.trim().length() == 0) {
+            return false;
+        }
+        // Normalise backslashes so that "/\evil.com" style values are
+        // evaluated as the protocol-relative "//evil.com" a browser follows.
+        String normalized = url.replace('\\', '/');
+        List<String> patterns = getRelayStateWhitelist();
+        patterns.add(request.getScheme() + "://" + request.getServerName()
+            + ":" + request.getServerPort() + "/*");
+        boolean valid = REDIRECT_URL_VALIDATOR.isRedirectUrlValid(
+            normalized, patterns);
+        if (!valid) {
+            debug.warning("CookieUtils.isRedirectUrlValid: refusing redirect "
+                + "to untrusted RelayState URL: " + url);
+        }
+        return valid;
+    }
 
     public static boolean isSAML2(HttpServletRequest req) {
         // check this is for idff or saml2
@@ -149,6 +223,9 @@ public class CookieUtils {
                 // Bea, IBM
                 if (cookieEncoding && (cookieValue != null)) {
                     cookieValue= URLEncDec.decode(cookieValue);
+                } else if (cookieValue != null) {
+                    cookieValue = cookieValue.replace(ESCAPED_SEPARATOR,
+                        IDPDiscoveryConstants.PREFERRED_COOKIE_SEPERATOR);
                 }
             } else {
                 debug.message("No Cookie is in the request");
@@ -283,7 +360,13 @@ public class CookieUtils {
         if (cookieEncoding) {
             cookie = new Cookie(name, URLEncDec.encode(value));
         } else {
-            cookie = new Cookie(name, value);
+            // RFC 6265 allows no space in a cookie value, and the container
+            // refuses to write or to read one. The separator of the preferred
+            // IdP list is escaped: it is the list's only character outside the
+            // cookie octets, since the IdPs themselves are base64.
+            cookie = new Cookie(name, value == null ? null : value.replace(
+                IDPDiscoveryConstants.PREFERRED_COOKIE_SEPERATOR,
+                ESCAPED_SEPARATOR));
         }
 
         cookie.setMaxAge(maxAge);
@@ -294,12 +377,25 @@ public class CookieUtils {
             cookie.setPath("/");
         }
             
+        // A leading dot is ignored by RFC 6265 (5.2.3) and refused by the
+        // container, so ".example.com" is set as "example.com".
+        if ((domain != null) && domain.startsWith(".")) {
+            domain = domain.substring(1);
+        }
         if ((domain != null) && (domain.length() > 0)) {
             cookie.setDomain(domain);
         }
 
-        cookie.setSecure(isCookieSecure());
-            
+        // The flags are set from creation so that a cookie handed straight to
+        // response.addCookie carries them as well as one that goes through
+        // addCookieToResponse.
+        if (isCookieSecure()) {
+            cookie.setSecure(true);
+        }
+        if (isCookieHttpOnly()) {
+            cookie.setHttpOnly(true);
+        }
+
         return cookie;
     }
     
@@ -405,9 +501,9 @@ public class CookieUtils {
 
     /**
      * Add cookie to HttpServletResponse as custom header
-     * 
-     * @param response
-     * @param cookie
+     *
+     * @param response the HTTP servlet response to add the cookie to
+     * @param cookie the cookie to add to the response
      */
     public static void addCookieToResponse(HttpServletResponse response,
             Cookie cookie) {
@@ -419,8 +515,10 @@ public class CookieUtils {
             return;
         }
 
-        // Once JavaEE6 is available, the following code can be simplified
-        // to be one line response.addCookie(cookie)
+        // The servlet Cookie has no SameSite attribute, and an HttpOnly cookie
+        // keeps the hand-built header it has always had: the container's cookie
+        // processor rejects cookie domains this WAR can be configured with, such
+        // as one with a port ("example.com:8443").
         StringBuffer sb = new StringBuffer(150);
         sb.append(cookie.getName()).append("=").append(cookie.getValue());
         String path = cookie.getPath();

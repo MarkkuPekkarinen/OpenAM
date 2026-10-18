@@ -12,7 +12,7 @@
  * information: "Portions copyright [year] [name of copyright owner]".
  *
  * Copyright 2014-2016 ForgeRock AS.
- * Portions copyright 2025 3A Systems LLC.
+ * Portions copyright 2025-2026 3A Systems LLC.
  */
 
 package org.forgerock.oauth2.restlet;
@@ -23,6 +23,7 @@ import org.forgerock.oauth2.core.exceptions.OAuth2Exception;
 import org.forgerock.oauth2.core.exceptions.ServerException;
 import org.forgerock.openam.rest.representations.JacksonRepresentationFactory;
 import org.forgerock.openam.services.baseurl.BaseURLProviderFactory;
+import org.owasp.esapi.ESAPI;
 import org.restlet.Context;
 import org.restlet.Request;
 import org.restlet.Response;
@@ -94,13 +95,13 @@ public class ExceptionHandler {
 
     /**
      * Handles a OAuth2RestletException that is thrown when processing a OAuth2 authorization request.
-     * <br/>
+     * <br>
      * If the OAuth2RestletException has a status of {@link Status#REDIRECTION_TEMPORARY} the user agent will be
      * redirected to the redirect uri set on the exception.
-     * <br/>
+     * <br>
      * If the OAuth2RestletException does not have a redirect status but still has a redirect uri set, the user
      * agent will be redrected to the redirect uri with the exception message in the redirect uri.
-     * <br/>
+     * <br>
      * In all other cases the OAuth2 error page will be presented.
      *
      * @param exception The OAuth2RestletException.
@@ -131,6 +132,14 @@ public class ExceptionHandler {
             return;
         }
         final Map<String, String> data = new HashMap<>(exception.asMap());
+        // The XUI renders these fields into the DOM with unescaped Handlebars output ({{{error.description}}}),
+        // and the template's ?js_string only protects the JavaScript string literal, so encode for HTML here.
+        // Exception messages can carry raw request data (e.g. a duplicated parameter name).
+        for (String field : new String[] {"error", "error_description", "error_uri"}) {
+            if (data.containsKey(field)) {
+                data.put(field, ESAPI.encoder().encodeForHTML(data.get(field)));
+            }
+        }
         final String realm = requestFactory.create(request).getParameter("realm");
         data.put("realm", realm);
         data.put("baseUrl", baseURLProviderFactory.get(realm).getRootURL(ServletUtils.getRequest(request)));
@@ -139,9 +148,9 @@ public class ExceptionHandler {
 
     /**
      * Handles general OAuth2 exceptions from Restlet endpoints.
-     * <br/>
+     * <br>
      * If the throwable is not a OAuth2RestletException then it will be wrapped as a ServerException.
-     * <br/>
+     * <br>
      * If the throwable is a OAuth2RestletException then it will be set on the response as a Json representation.
      *
      * @param throwable The throwable.

@@ -29,6 +29,7 @@
 /*
  * Portions Copyrighted 2011 ForgeRock AS
  * Portions Copyrighted 2015 Intellectual Reserve, Inc (IRI)
+ * Portions Copyrighted 2026 3A Systems LLC.
  */
 package org.forgerock.openam.radius.common;
 
@@ -37,7 +38,7 @@ import java.util.Vector;
 
 /**
  * Holder of the attribute instances in an instance of the
- * {@link com.sun.identity.authentication.modules.radius.client .Packet} type which is the superclass of all radius
+ * {@code com.sun.identity.authentication.modules.radius.client.Packet} type which is the superclass of all radius
  * packet types. Maintains the order in which attributes are added.
  */
 public class AttributeSet {
@@ -107,5 +108,26 @@ public class AttributeSet {
      */
     public Attribute getAttributeAt(int pos) {
         return (Attribute) attrs.elementAt(pos);
+    }
+
+    /**
+     * Removes every attribute whose type matches the given type code. Useful when a packet is
+     * re-transmitted (for example during RADIUS failover) and an attribute that must appear at most
+     * once - such as RFC 3579 Message-Authenticator (one per packet) - has to be regenerated from
+     * scratch instead of being appended a second time.
+     *
+     * @param type the attribute type code whose instances should be evicted.
+     * @return the number of attribute instances that were removed.
+     */
+    public int removeAttributesByType(AttributeType type) {
+        int removed = 0;
+        for (int i = attrs.size() - 1; i >= 0; i--) {
+            final Attribute attr = (Attribute) attrs.elementAt(i);
+            if (attr.getType() == type) {
+                attrs.removeElementAt(i);
+                removed++;
+            }
+        }
+        return removed;
     }
 }

@@ -13,7 +13,7 @@
  * Header, with the fields enclosed by brackets [] replaced by your own identifying
  * information: "Portions copyright [year] [name of copyright owner]".
  *
- * Portions Copyrighted 2025 3A Systems LLC.
+ * Portions Copyrighted 2025-2026 3A Systems LLC.
  */
 package org.forgerock.openam.cts.adapters;
 
@@ -58,9 +58,9 @@ public class OAuthAdapter implements TokenAdapter<JsonValue> {
      * Default constructor with dependencies exposed.
      *
      * @param tokenIdFactory Non null.
-     * @param serialisation
-     * @param oAuthValues
-     * @param blobUtils
+     * @param serialisation the JSON serialisation helper used to marshal token state
+     * @param oAuthValues the helper used to read OAuth specific values
+     * @param blobUtils the token blob utilities used to read and write the token blob
      */
     @Inject
     public OAuthAdapter(TokenIdFactory tokenIdFactory, JSONSerialisation serialisation,
@@ -98,7 +98,7 @@ public class OAuthAdapter implements TokenAdapter<JsonValue> {
             id = tokenIdFactory.generateTokenId(null);
         }
         request.get(TokenIdFactory.ID).setObject(id);
-        Token token = new Token(id, TokenType.OAUTH);
+        Token token = new Token(tokenIdFactory.toOAuthTokenStoreId(id), TokenType.OAUTH);
 
         // For each OAuth attribute, assign it to the token.
         Map<String,Object> values = request.asMap();
@@ -165,6 +165,9 @@ public class OAuthAdapter implements TokenAdapter<JsonValue> {
      */
     public JsonValue fromToken(Token token) {
         if (token == null){
+            return null;
+        }
+        if (!TokenType.OAUTH.equals(token.getType())) {
             return null;
         }
         String data = blobUtils.getBlobAsString(token);

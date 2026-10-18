@@ -12,6 +12,7 @@
  * the License file at legal/CDDLv1.0.txt. If applicable, add the following below the CDDL
  * Header, with the fields enclosed by brackets [] replaced by your own identifying
  * information: "Portions copyright [year] [name of copyright owner]".
+ * Portions copyright 2026 3A Systems LLC
  */
 package com.iplanet.dpro.session.operations;
 
@@ -93,11 +94,13 @@ public interface SessionOperations {
 
     /**
      * Add a session listener notification url.  The url will receive a notification when session change events occur.
-     * @param session the session to listen to.
-     * @param url the listener notification url
+     *
+     * @param clientToken SSO Token of the client adding session listener (should be admin or agent).
+     * @param session     the session to listen to.
+     * @param url         the listener notification url
      * @throws SessionException if the session could not be accessed.
      */
-    void addSessionListener(Session session, String url) throws SessionException;
+    void addSessionListener(SSOToken clientToken, Session session, String url) throws SessionException;
 
     /**
      * Check whether a session identified by {code sessionId} can be retrieved.
@@ -171,9 +174,15 @@ public interface SessionOperations {
      * size is limited by the session service's "iplanet-am-session-max-session-list-size" attribute. The returned
      * sessions are only "partial" sessions, meaning that they do not represent the full session state.
      *
+     * <p>The realm the query runs against is only present in the query filter, hence the caller is needed here to
+     * authorize that realm: without it, any caller reaching this method is able to list the sessions of every
+     * realm of the deployment.</p>
+     *
+     * @param caller The session to use for authorization.
      * @param crestQuery The CREST query based on which we should look for matching sessions.
      * @return The collection of matching partial sessions.
-     * @throws SessionException If the request fails.
+     * @throws SessionException If the request fails, or if the caller may not list the sessions of the realm named
+     *         in the query filter.
      */
-    Collection<PartialSession> getMatchingSessions(CrestQuery crestQuery) throws SessionException;
+    Collection<PartialSession> getMatchingSessions(Session caller, CrestQuery crestQuery) throws SessionException;
 }

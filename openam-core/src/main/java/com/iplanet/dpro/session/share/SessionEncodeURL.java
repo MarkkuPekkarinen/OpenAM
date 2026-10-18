@@ -25,7 +25,7 @@
  * $Id: SessionEncodeURL.java,v 1.7 2008/08/19 19:08:41 veiming Exp $
  *
  * Portions Copyrighted 2011-2015 ForgeRock AS.
- * Portions Copyrighted 2025 3A Systems LLC.
+ * Portions Copyrighted 2025-2026 3A Systems LLC.
  */
 package com.iplanet.dpro.session.share;
 
@@ -38,7 +38,7 @@ import java.util.Hashtable;
 import jakarta.servlet.http.HttpServletRequest;
 
 /** 
- * <code>SessionEncodeURL</code> class encodes the </code>URL</code> 
+ * <code>SessionEncodeURL</code> class encodes the <code>URL</code>
  * with the cookie value as a query string
  * or extra path info based on the encoding scheme.
  * <p>
@@ -49,7 +49,7 @@ import jakarta.servlet.http.HttpServletRequest;
  * <p>
  * If the encoding scheme is SLASH then the  cookie value would be
  * written in the URL as extra path info in the following format:
- * <code>protocol://server:port/servletpath/&lt;cookieName>=&lt;cookieValue>?
+ * <code>protocol://server:port/servletpath/&lt;cookieName&gt;=&lt;cookieValue&gt;?
  * queryString</code>
  * <p>
  * Note that this format works only if the path is a servlet, if a
@@ -61,7 +61,7 @@ import jakarta.servlet.http.HttpServletRequest;
  * <p>
  * If the encoding scheme is SEMICOLON then the cookie value would be
  * written in the URL as extra path info in the following format:
- * <code>protocol://server:port/path;&lt;cookieName=cookieValue>
+ * <code>protocol://server:port/path;&lt;cookieName=cookieValue&gt;
  * ?queryString</code>
  * Note that this is not supported in the servlet specification and
  * some web containers do not support this.
@@ -70,8 +70,8 @@ import jakarta.servlet.http.HttpServletRequest;
  * If the encoding scheme is QUERY then the cookie value would be
  * written in the URL in the following format:
  * <pre>
- * protocol://server:port/path?&lt;cookieName>=&lt;cookieValue>
- * protocol://server:port/path?queryString&&lt;cookieName>=&lt;cookieValue>
+ * protocol://server:port/path?&lt;cookieName&gt;=&lt;cookieValue&gt;
+ * protocol://server:port/path?queryString&amp;&lt;cookieName&gt;=&lt;cookieValue&gt;
  * </pre>
  * <p>
  * This is the default and OpenAM always encodes in this format
@@ -141,7 +141,6 @@ public class SessionEncodeURL {
      * if encoding scheme is <code>SEMICOLON</code>, <code>encodedURL</code>
      * format will be:
      * <code>protocol://server:port/path;cookieName=cookieValue</code>
-     * <p>
      * 
      * @param sidString Session ID.
      * @param url the URL to be encoded.
@@ -274,7 +273,7 @@ public class SessionEncodeURL {
 
     /**
      * Encodes the specified URL by including the session ID in it. Similar to
-     * <code>javax.servlet.http.HttpServletResponse.encodeURL()</code>. session
+     * <code>jakarta.servlet.http.HttpServletResponse.encodeURL()</code>. session
      * ID will be only be included if the client needs encoding.
      * 
      * @param url URL to be rewritten with the session ID.

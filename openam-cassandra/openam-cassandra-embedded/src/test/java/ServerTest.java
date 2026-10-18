@@ -12,8 +12,18 @@
  * information: "Portions copyright [year] [name of copyright owner]".
  *
  * Copyright 2019 Open Identity Platform Community.
+ * Portions Copyright 2020-2026 3A Systems, LLC.
  */
 
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assume.assumeTrue;
+
+import java.io.IOException;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.nio.file.attribute.PosixFilePermissions;
 
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
@@ -28,10 +38,16 @@ public class ServerTest {
 	static Server cassandra;
 	
 	@BeforeClass
-	public static void init() throws  IdRepoException{
+	public static void init() throws  IdRepoException, IOException{
+		// A storage directory that does not exist yet, so the assertion sees what run() creates rather than what
+		// an earlier run left behind; under target, so that the data the daemon writes goes with mvn clean.
+		Files.createDirectories(Paths.get("target"));
+		System.setProperty("cassandra.storagedir", Files.createTempDirectory(Paths.get("target"), "server-test")
+				.resolve("embeddedCassandra").toAbsolutePath().toString());
 		System.setProperty("datastax-java-driver.advanced.auth-provider.class","PlainTextAuthProvider");
 		System.setProperty("datastax-java-driver.advanced.auth-provider.username","cassandra");
 		System.setProperty("datastax-java-driver.advanced.auth-provider.password","cassandra");
+		System.setProperty("datastax-java-driver.basic.request.timeout", "20 seconds");
 	}
 	
 	@AfterClass
@@ -39,9 +55,13 @@ public class ServerTest {
 	}
 	
 	@Test
-	public void start_test() throws  IdRepoException{
+	public void start_test() throws  IdRepoException, IOException{
 		
 		cassandra=new Server();
 		cassandra.run();
+		// run() is what closes the storage directory to other accounts, not only privateDirectory.
+		assumeTrue(FileSystems.getDefault().supportedFileAttributeViews().contains("posix"));
+		assertEquals(PosixFilePermissions.fromString("rwx------"),
+				Files.getPosixFilePermissions(Paths.get(System.getProperty("cassandra.storagedir"))));
 	}
 }

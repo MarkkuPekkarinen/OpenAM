@@ -13,7 +13,7 @@
  *
  * Copyright 2014-2016 ForgeRock AS.
  * Portions Copyrighted 2015 Nomura Research Institute, Ltd.
- * Portions copyright 2025 3A Systems LLC.
+ * Portions copyright 2025-2026 3A Systems LLC.
  */
 
 package org.forgerock.openidconnect;
@@ -23,6 +23,10 @@ import static org.forgerock.openam.oauth2.OAuth2Constants.ShortClientAttributeNa
 
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
@@ -36,6 +40,7 @@ import java.util.Set;
 import java.util.UUID;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sun.identity.common.HttpURLConnectionManager;
 import com.sun.identity.shared.validation.ValidationException;
 import org.forgerock.json.JsonException;
 import org.forgerock.json.JsonValue;
@@ -54,7 +59,9 @@ import org.forgerock.oauth2.core.exceptions.ServerException;
 import org.forgerock.oauth2.core.exceptions.UnauthorizedClientException;
 import org.forgerock.oauth2.core.exceptions.UnsupportedResponseTypeException;
 import org.forgerock.openam.oauth2.OAuth2Constants;
+import org.forgerock.openam.oauth2.validation.JwksUriValidator;
 import org.forgerock.openam.oauth2.validation.OpenIDConnectURLValidator;
+import org.forgerock.openam.oauth2.validation.SsrfUrlValidator;
 import org.forgerock.openam.utils.JsonValueBuilder;
 import org.forgerock.openidconnect.exceptions.InvalidClientMetadata;
 import org.forgerock.openidconnect.exceptions.InvalidPostLogoutRedirectUri;
@@ -76,12 +83,21 @@ public class OpenIdConnectClientRegistrationService {
     private static final String REGISTRATION_CLIENT_URI = "registration_client_uri";
     private static final String EXPIRES_AT = "client_secret_expires_at";
 
+    /**
+     * Upper bound on the size of a {@code sector_identifier_uri} document. It holds a JSON array
+     * of the client's redirect URIs and runs to a few hundred bytes in practice; the ceiling stops
+     * a hostile endpoint from deciding how much heap this server spends on parsing one.
+     */
+    private static final int MAX_SECTOR_IDENTIFIER_BYTES = 512 * 1024;
+
     private final Logger logger = LoggerFactory.getLogger("OAuth2Provider");
     private final ClientDAO clientDAO;
     private final OAuth2ProviderSettingsFactory providerSettingsFactory;
     private final AccessTokenVerifier tokenVerifier;
     private final TokenStore tokenStore;
     private final OpenIDConnectURLValidator urlValidator;
+    private final SsrfUrlValidator ssrfUrlValidator;
+    private final JwksUriValidator jwksUriValidator;
     private final ObjectMapper mapper = new ObjectMapper();
 
     /**
@@ -92,17 +108,24 @@ public class OpenIdConnectClientRegistrationService {
      * @param tokenVerifier An instance of the AccessTokenVerifier.
      * @param tokenStore An instance of the TokenStore.
      * @param urlValidator An instance of the URLValidator.
+     * @param ssrfUrlValidator An instance of the SsrfUrlValidator, used to guard fetches of
+     *         client-supplied URLs such as {@code sector_identifier_uri} (GHSA-7c7p-4mff-c9vg).
+     * @param jwksUriValidator An instance of the JwksUriValidator, used to guard the later fetch
+     *         of a client-supplied {@code jwks_uri} (GHSA-g7cv-hh35-cc7c).
      */
     @Inject
     OpenIdConnectClientRegistrationService(ClientDAO clientDAO,
             OAuth2ProviderSettingsFactory providerSettingsFactory,
             AccessTokenVerifier tokenVerifier, TokenStore tokenStore,
-            OpenIDConnectURLValidator urlValidator) {
+            OpenIDConnectURLValidator urlValidator, SsrfUrlValidator ssrfUrlValidator,
+            JwksUriValidator jwksUriValidator) {
         this.clientDAO = clientDAO;
         this.providerSettingsFactory = providerSettingsFactory;
         this.tokenVerifier = tokenVerifier;
         this.tokenStore = tokenStore;
         this.urlValidator = urlValidator;
+        this.ssrfUrlValidator = ssrfUrlValidator;
+        this.jwksUriValidator = jwksUriValidator;
     }
 
     /**
@@ -167,13 +190,25 @@ public class OpenIdConnectClientRegistrationService {
                 }
                 jwks = true;
 
+                final String jwksUri = input.get(JWKS_URI.getType()).asString();
                 try {
-                    new URL(input.get(JWKS_URI.getType()).asString());
+                    new URL(jwksUri);
                 } catch (MalformedURLException e) {
                     throw new InvalidClientMetadata("jwks_uri must be a valid URL.");
                 }
+                // Being a well-formed URL is not enough: the token endpoint fetches this URL when
+                // the client authenticates with private_key_jwt, so storing it unchecked is a
+                // stored SSRF (GHSA-g7cv-hh35-cc7c). Require http/https and a public address, the
+                // same model already applied to sector_identifier_uri below.
+                try {
+                    jwksUriValidator.validate(jwksUri);
+                } catch (ValidationException e) {
+                    logger.error("Rejected jwks_uri (must be http or https and must not target a "
+                            + "private, loopback or link-local address): {}", jwksUri);
+                    throw new InvalidClientMetadata("Invalid jwks_uri requested.");
+                }
 
-                clientBuilder.setJwksUri(input.get(JWKS_URI.getType()).asString());
+                clientBuilder.setJwksUri(jwksUri);
                 clientBuilder.setPublicKeySelector(Client.PublicKeySelector.JWKS_URI.getType());
             }
 
@@ -249,9 +284,31 @@ public class OpenIdConnectClientRegistrationService {
             }
 
             if (input.get(SECTOR_IDENTIFIER_URI.getType()).asString() != null) {
+                final String sectorIdentifierUri = input.get(SECTOR_IDENTIFIER_URI.getType()).asString();
+                // Validate the URL before fetching it, to prevent server-side request forgery
+                // (GHSA-7c7p-4mff-c9vg): require https and reject private/loopback/link-local hosts.
                 try {
-                    URL sectorIdentifier = new URL(input.get(SECTOR_IDENTIFIER_URI.getType()).asString());
-                    List<String> response = mapper.readValue(sectorIdentifier, List.class);
+                    ssrfUrlValidator.validate(sectorIdentifierUri);
+                } catch (ValidationException e) {
+                    logger.error("Rejected sector_identifier_uri (must be https and must not target a "
+                            + "private, loopback or link-local address): {}", sectorIdentifierUri);
+                    throw new InvalidClientMetadata("Invalid sector_identifier_uri requested.");
+                }
+                try {
+                    URL sectorIdentifier = new URL(sectorIdentifierUri);
+                    HttpURLConnection connection = HttpURLConnectionManager.getConnection(sectorIdentifier);
+                    // Do not follow redirects: the SSRF guard validates the initial URL, but a 3xx
+                    // to an internal address would otherwise be followed and defeat that check
+                    // (GHSA-7c7p-4mff-c9vg). Set on this connection only, not in the shared
+                    // HttpURLConnectionManager.
+                    connection.setInstanceFollowRedirects(false);
+                    List<String> response;
+                    try (InputStream in = connection.getInputStream()) {
+                        // Read through a ceiling rather than straight into Jackson: the endpoint is
+                        // chosen by the registering client, and an unbounded readValue would let it
+                        // decide how much heap this server spends on a list of redirect URIs.
+                        response = mapper.readValue(readCapped(in), List.class);
+                    }
 
                     if (!response.containsAll(redirectUris)) {
                         logger.error("Request_uris not included in sector_identifier_uri.");
@@ -261,7 +318,7 @@ public class OpenIdConnectClientRegistrationService {
                     logger.error("Invalid sector_identifier_uri requested.");
                     throw new InvalidClientMetadata("Invalid sector_identifier_uri requested.");
                 }
-                clientBuilder.setSectorIdentifierUri(input.get(SECTOR_IDENTIFIER_URI.getType()).asString());
+                clientBuilder.setSectorIdentifierUri(sectorIdentifierUri);
             }
 
             List<String> scopes = input.get(SCOPES.getType()).asList(String.class);
@@ -500,6 +557,28 @@ public class OpenIdConnectClientRegistrationService {
         return rat.getTokenId();
     }
 
+    /**
+     * Reads {@code in} to the end, refusing to buffer more than
+     * {@link #MAX_SECTOR_IDENTIFIER_BYTES}.
+     *
+     * @param in the response body of a {@code sector_identifier_uri} fetch.
+     * @return the bytes read.
+     * @throws IOException if the document exceeds the ceiling, or the read itself fails.
+     */
+    private static byte[] readCapped(InputStream in) throws IOException {
+        final ByteArrayOutputStream buffered = new ByteArrayOutputStream();
+        final byte[] chunk = new byte[8192];
+        int read;
+        while ((read = in.read(chunk)) != -1) {
+            if (buffered.size() + read > MAX_SECTOR_IDENTIFIER_BYTES) {
+                throw new IOException("sector_identifier_uri document is larger than the supported "
+                        + "maximum of " + MAX_SECTOR_IDENTIFIER_BYTES + " bytes");
+            }
+            buffered.write(chunk, 0, read);
+        }
+        return buffered.toByteArray();
+    }
+
     private boolean containsAllCaseInsensitive(final Set<String> collection, final List<String> values) {
         for (String value : values) {
             boolean foundInCollection = false;
@@ -535,7 +614,7 @@ public class OpenIdConnectClientRegistrationService {
      * @return JsonValue representation of the client registration.
      * @throws InvalidRequestException If either the request does not contain the client's id or the client fails to be
      *          authenticated.
-     * @throws InvalidClientMetadata
+     * @throws InvalidClientMetadata if the client's registration metadata is invalid.
      */
     public JsonValue getRegistration(String clientId, String accessToken, OAuth2Request request)
             throws InvalidRequestException, InvalidClientMetadata, InvalidTokenException {

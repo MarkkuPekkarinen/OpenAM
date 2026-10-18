@@ -26,6 +26,7 @@
  *
  * Portions Copyrighted 2011-2016 ForgeRock AS.
  * Portions Copyrighted 2014 Nomura Research Institute, Ltd
+ * Portions Copyrighted 2026 3A Systems, LLC.
  */
 package com.sun.identity.entitlement.xacml3;
 
@@ -53,6 +54,7 @@ import javax.xml.bind.Marshaller;
 import javax.xml.bind.Unmarshaller;
 import javax.xml.namespace.QName;
 
+import org.forgerock.openam.entitlement.utils.EntitlementUtils;
 import org.forgerock.util.annotations.VisibleForTesting;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -92,7 +94,7 @@ import com.sun.identity.shared.xml.XMLUtils;
  * Class with utility methods to map from
  * <code>com.sun.identity.entity.Privilege</code>
  * to
- * </code>com.sun.identity.entitlement.xacml3.core.Policy</code>
+ * <code>com.sun.identity.entitlement.xacml3.core.Policy</code>
  */
 public class XACMLPrivilegeUtils {
 
@@ -1271,7 +1273,7 @@ public class XACMLPrivilegeUtils {
                 > XACMLConstants.JSON_SUBJECT_DATATYPE.length()) {
             className = dataType.substring(
                     XACMLConstants.JSON_SUBJECT_DATATYPE.length() + 1);
-            Object ob = createDefaultObject(className);
+            Object ob = createDefaultObject(className, EntitlementSubject.class);
             if (ob != null && ob instanceof EntitlementSubject) {
                 es = (EntitlementSubject)ob;
             } else {
@@ -1300,7 +1302,7 @@ public class XACMLPrivilegeUtils {
                 > XACMLConstants.JSON_CONDITION_DATATYPE.length()) {
             className = dataType.substring(
                     XACMLConstants.JSON_CONDITION_DATATYPE.length() + 1);
-            Object ob = createDefaultObject(className);
+            Object ob = createDefaultObject(className, EntitlementCondition.class);
             if (ob != null && ob instanceof EntitlementCondition) {
                 ec = (EntitlementCondition)ob;
             } else {
@@ -1316,14 +1318,16 @@ public class XACMLPrivilegeUtils {
         return ec;
     }
 
-    static Object createDefaultObject(String className) {
+    static Object createDefaultObject(String className, Class<?> expectedType) {
         if (className == null) {
             return null;
         }
+        String trimmed = className.trim();
         Object ob = null;
         try {
-            Class cla = Class.forName(className.trim());
-            ob =  cla.newInstance();
+            // Shared guard: loads WITHOUT initialising and rejects anything that is not an
+            // instantiable subtype of expectedType before instantiation (unsafe reflection, CWE-470).
+            ob = EntitlementUtils.resolveExtensionClass(trimmed, expectedType).newInstance();
         } catch (ClassNotFoundException e) {
             PrivilegeManager.debug.error("XACMLPrivilegeUtils.createDefaultObject(),"
                     + "hit exception", e);

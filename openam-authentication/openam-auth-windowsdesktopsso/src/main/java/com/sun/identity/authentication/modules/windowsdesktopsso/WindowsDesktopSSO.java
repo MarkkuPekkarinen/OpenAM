@@ -25,7 +25,7 @@
  * $Id: WindowsDesktopSSO.java,v 1.7 2009/07/28 19:40:45 beomsuk Exp $
  *
  * Portions Copyrighted 2011-2016 ForgeRock AS.
- * Portions Copyrighted 2025 3A Systems LLC.
+ * Portions Copyrighted 2025-2026 3A Systems LLC.
  */
 
 package com.sun.identity.authentication.modules.windowsdesktopsso;
@@ -128,11 +128,11 @@ public class WindowsDesktopSSO extends AMLoginModule {
     }
 
     /**
-     * Initialize parameters. 
+     * Initialize parameters.
      *
-     * @param subject
-     * @param sharedState
-     * @param options
+     * @param subject the subject to be authenticated
+     * @param sharedState the state shared between authentication modules
+     * @param options the configuration options for this module
      */
     public void init(Subject subject, Map sharedState, Map options) {
         this.options = options;
@@ -154,8 +154,8 @@ public class WindowsDesktopSSO extends AMLoginModule {
     /**
      * Processes the authentication request.
      *
-     * @param callbacks
-     * @param state
+     * @param callbacks the callbacks presented to this module for the request
+     * @param state the current authentication state
      * @return  -1 as succeeded; 0 as failed.
      * @exception AuthLoginException upon any failure.
      */
@@ -203,7 +203,7 @@ public class WindowsDesktopSSO extends AMLoginModule {
 
         // authenticate the user with the kerberos token
         try {
-            authenticateToken(kerberosToken, trustedKerberosRealms);
+            authenticateToken(serviceSubject, kerberosToken, trustedKerberosRealms);
             if (debug.messageEnabled()){
                 debug.message("WindowsDesktopSSO kerberos authentication passed succesfully.");
             }
@@ -215,38 +215,41 @@ public class WindowsDesktopSSO extends AMLoginModule {
                  if (major == GSSException.CREDENTIALS_EXPIRED) {	 
                          debug.message("Credential expired. Re-establish credential...");	 
                  serviceLogin();	 
+                 cacheServiceLogin();
                  try {   
-                     authenticateToken(kerberosToken, trustedKerberosRealms);  
+                     authenticateToken(serviceSubject, kerberosToken, trustedKerberosRealms);  
+                     result = ISAuthConstants.LOGIN_SUCCEED;
                      if (debug.messageEnabled()){
                        debug.message("Authentication succeeded with new cred.");    
-                           result = ISAuthConstants.LOGIN_SUCCEED;
                      }
                  } catch (Exception ee) {   
                        debug.error("Authentication failed with new cred.Stack Trace", ee); 
-                       throw new AuthLoginException(amAuthWindowsDesktopSSO,    
-                                "auth", null, ee);  
+                       throw toAuthLoginException(ee);
                 }   
               } else {  
                      debug.error("Authentication failed with PrivilegedActionException wrapped GSSException. Stack Trace", e);  
                      throw new AuthLoginException(amAuthWindowsDesktopSSO, "auth",  
                               null, e);
               }     
-            }   
+            } else {
+                debug.error("Authentication failed with PrivilegedActionException. Stack Trace", e);
+                throw toAuthLoginException(e);
+            }
        } catch (GSSException e1 ){
            int major = e1.getMajor();
            if (major == GSSException.CREDENTIALS_EXPIRED) {
                debug.message("Credential expired. Re-establish credential...");
                serviceLogin();
+               cacheServiceLogin();
                    try {
-                   authenticateToken(kerberosToken, trustedKerberosRealms);
+                   authenticateToken(serviceSubject, kerberosToken, trustedKerberosRealms);
+                   result = ISAuthConstants.LOGIN_SUCCEED;
                    if (debug.messageEnabled()){
                        debug.message("Authentication succeeded with new cred.");
-                           result = ISAuthConstants.LOGIN_SUCCEED; 
                    }
                } catch (Exception ee) {
                        debug.error("Authentication failed with new cred. Stack Trace", ee);
-                       throw new AuthLoginException(amAuthWindowsDesktopSSO, 
-                       "auth", null, ee);
+                       throw toAuthLoginException(ee);
                }
            } else {
                debug.error("Authentication failed with GSSException. Stack Trace", e1);
@@ -264,11 +267,12 @@ public class WindowsDesktopSSO extends AMLoginModule {
         return result;
     }
 
-    private void authenticateToken(final byte[] kerberosToken, final Set<String> trustedRealms) 
+    @VisibleForTesting
+    void authenticateToken(final Subject subject, final byte[] kerberosToken, final Set<String> trustedRealms)
             throws AuthLoginException, GSSException, Exception {
 
         debug.message("In authenticationToken ...");
-        Subject.doAs(serviceSubject, new PrivilegedExceptionAction(){
+        Subject.doAs(subject, new PrivilegedExceptionAction(){
             public Object run() throws Exception {
                 GSSContext context =
                     GSSManager.getInstance().createContext(
@@ -356,6 +360,21 @@ public class WindowsDesktopSSO extends AMLoginModule {
          }	 
          return e;	 
      }
+
+    /**
+     * Returns the AuthLoginException that the token check threw inside Subject.doAs, with its error code and
+     * arguments, or wraps any other failure in an "auth" AuthLoginException.
+     *
+     * @param e the exception from the token check, possibly wrapped in PrivilegedActionException(s)
+     * @return the exception for the module to throw
+     */
+    private static AuthLoginException toAuthLoginException(Exception e) {
+        Exception cause = extractException(e);
+        if (cause instanceof AuthLoginException) {
+            return (AuthLoginException) cause;
+        }
+        return new AuthLoginException(amAuthWindowsDesktopSSO, "auth", null, cause);
+    }
 
     /**
      * TODO-JAVADOC
@@ -602,14 +621,15 @@ public class WindowsDesktopSSO extends AMLoginModule {
         }
         verifyAttributes();
         serviceLogin();
+        cacheServiceLogin();
+    }
 
-        // save the service subject and the other configuration data
-        // into configTable for other auth requests in the same org
-        Map configMap = (Map)configTable.get(confIndex);
-        if (configMap == null) {
-            configMap = new HashMap();
-        }
-
+    /**
+     * Saves the service subject and the other configuration data into configTable for other auth requests in the
+     * same org. Always publishes a new map: other requests read the cached one without a lock.
+     */
+    private void cacheServiceLogin() {
+        Map configMap = new HashMap();
         configMap.put(configAttributes[SUBJECT], serviceSubject);
         configMap.put(configAttributes[PRINCIPAL], servicePrincipalName);
         configMap.put(configAttributes[KEYTAB], keyTabFile);
@@ -872,10 +892,12 @@ public class WindowsDesktopSSO extends AMLoginModule {
      *  identity in the organization
      * @param organization organization or the organization name where the identity will be
      *  looked up
-     * @return the attribute value for the identity searched. Empty string if not found or
-     *  null if an error occurs
+     * @return the attribute value for the identity searched, or null if no identity is found
+     * @throws AuthLoginException if the alias search attribute names cannot be read, or the search fails with an
+     *  identity repository ("idRepoSearch") or SSO ("ssoSearch") error
      */
-    private String searchUserAccount(String attributeValue, String organization) 
+    @VisibleForTesting
+    String searchUserAccount(String attributeValue, String organization) 
             throws AuthLoginException {
 
         String classMethod = "WindowsDesktopSSO.searchUserAccount: ";

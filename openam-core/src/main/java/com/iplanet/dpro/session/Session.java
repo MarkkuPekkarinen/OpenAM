@@ -25,6 +25,7 @@
  * $Id: Session.java,v 1.25 2009/08/14 17:53:35 weisun2 Exp $
  *
  * Portions copyright 2010-2016 ForgeRock AS.
+ * Portions Copyrighted 2017-2026 3A Systems LLC
  */
 
 package com.iplanet.dpro.session;
@@ -33,12 +34,14 @@ import static org.forgerock.openam.session.SessionConstants.*;
 import static org.forgerock.openam.utils.Time.*;
 
 import java.net.URL;
+import java.security.AccessController;
 import java.util.HashSet;
 import java.util.Hashtable;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import com.sun.identity.security.AdminTokenAction;
 import org.forgerock.guice.core.InjectorHolder;
 import org.forgerock.openam.blacklist.BlacklistException;
 import org.forgerock.openam.blacklist.Blacklistable;
@@ -316,7 +319,7 @@ public class Session implements Blacklistable, AMSession{
      * Returns true if the session has timed out.
      * @return <code>true</code> if session timed out,
      *         <code>false</code>otherwise
-     * @exception SessionException
+     * @exception SessionException if an error occurs while determining the session state.
      */
     public boolean isTimedOut() throws SessionException {
         /**
@@ -461,7 +464,7 @@ public class Session implements Blacklistable, AMSession{
      * @param session Must be an app token
      * @param restrictedId The SSOTokenID of the restricted token
      * @return The SSOTokenID string of the master token
-     * @throws SSOException If the master token cannot be dereferenced
+     * @throws SessionException If the master token cannot be dereferenced
      */
     public String dereferenceRestrictedTokenID(Session session, String restrictedId) throws SessionException {
         String masterSID;
@@ -482,7 +485,7 @@ public class Session implements Blacklistable, AMSession{
      * restricted token, false otherwise.
      *
      * @return true if the token is restricted
-     * @throws SSOException If we are unable to determine if the session is
+     * @throws SessionException If we are unable to determine if the session is
      *              restricted
      */
     public boolean isRestricted() throws SessionException {
@@ -825,7 +828,7 @@ public class Session implements Blacklistable, AMSession{
         this.restriction = restriction;
     }
 
-    /**
+    /**restriction
       * populate context object with admin token
       * @exception SessionException
       * @param appSSOToken application SSO Token to bet set
@@ -862,9 +865,10 @@ public class Session implements Blacklistable, AMSession{
      */
     public void addInternalSessionListener() {
         try {
+            final SSOToken appSSOToken = AccessController.doPrivileged(AdminTokenAction.getInstance());
             String url = WebtopNaming.getNotificationURL().toString();
             SessionOperations operations = sessionOperationStrategy.getOperation(sessionID);
-            operations.addSessionListener(this, url);
+            operations.addSessionListener(appSSOToken, this, url);
         } catch (Exception e) {
             sessionDebug.warning("error adding internal session listener", e);
         }

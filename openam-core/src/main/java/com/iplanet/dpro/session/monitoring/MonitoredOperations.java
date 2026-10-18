@@ -12,7 +12,7 @@
 * information: "Portions copyright [year] [name of copyright owner]".
 *
 * Copyright 2014-2016 ForgeRock AS.
-* Portions Copyrighted 2025 3A Systems, LLC.
+* Portions Copyrighted 2025-2026 3A Systems, LLC.
 */
 package com.iplanet.dpro.session.monitoring;
 
@@ -94,8 +94,9 @@ public class MonitoredOperations implements SessionOperations {
     }
 
     @Override
-    public Collection<PartialSession> getMatchingSessions(CrestQuery crestQuery) throws SessionException {
-        return sessionOperations.getMatchingSessions(crestQuery);
+    public Collection<PartialSession> getMatchingSessions(Session caller, CrestQuery crestQuery)
+            throws SessionException {
+        return sessionOperations.getMatchingSessions(caller, crestQuery);
     }
 
     @Override
@@ -123,8 +124,8 @@ public class MonitoredOperations implements SessionOperations {
     }
 
     @Override
-    public void addSessionListener(Session session, String url) throws SessionException {
-        sessionOperations.addSessionListener(session, url); // Not monitored at present
+    public void addSessionListener(SSOToken clientToken, Session session, String url) throws SessionException {
+        sessionOperations.addSessionListener(clientToken, session, url); // Not monitored at present
     }
 
     @Override

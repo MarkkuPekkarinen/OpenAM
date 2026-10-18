@@ -12,6 +12,7 @@
  * information: "Portions copyright [year] [name of copyright owner]".
  *
  * Copyright 2014-2016 ForgeRock AS.
+ * Portions copyright 2026 3A Systems, LLC.
  */
 
 package org.forgerock.oauth2.core;
@@ -19,6 +20,7 @@ package org.forgerock.oauth2.core;
 import static org.assertj.core.api.Assertions.fail;
 import static org.forgerock.openam.utils.Time.currentTimeMillis;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.assertEquals;
 
@@ -31,7 +33,7 @@ import java.util.Set;
 import org.forgerock.oauth2.core.exceptions.InvalidGrantException;
 import org.forgerock.oauth2.core.exceptions.InvalidRequestException;
 import org.forgerock.openam.oauth2.OAuth2UrisFactory;
-import org.mockito.Matchers;
+import org.mockito.ArgumentMatchers;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -66,7 +68,7 @@ public class AuthorizationCodeGrantTypeHandlerTest {
                 tokenInvalidator, providerSettingsFactory, urisFactory, accessTokenGenerator);
 
         providerSettings = mock(RealmOAuth2ProviderSettings.class);
-        given(providerSettingsFactory.get(Matchers.<OAuth2Request>anyObject())).willReturn(providerSettings);
+        given(providerSettingsFactory.get(ArgumentMatchers.<OAuth2Request>anyObject())).willReturn(providerSettings);
 
         uris = mock(OAuth2Uris.class);
         given(urisFactory.get(any(OAuth2Request.class))).willReturn(uris);
@@ -114,7 +116,7 @@ public class AuthorizationCodeGrantTypeHandlerTest {
         } catch (InvalidGrantException e) {
             //Then
             verify(requestValidator).validateRequest(request, clientRegistration);
-            verify(tokenInvalidator).invalidateTokens(eq(request), anyString(), anyString(), anyString());
+            verify(tokenInvalidator).invalidateTokens(eq(request), nullable(String.class), nullable(String.class), nullable(String.class));
         }
     }
 
@@ -214,11 +216,11 @@ public class AuthorizationCodeGrantTypeHandlerTest {
         given(clientRegistration.getClientId()).willReturn("CLIENT_ID");
         given(authorizationCode.getExpiryTime()).willReturn(currentTimeMillis() + 100);
         given(providerSettings.issueRefreshTokens()).willReturn(true);
-        given(tokenStore.createRefreshToken(anyString(), anyString(), anyString(), anyString(), anySetOf(String.class),
-                eq(request), isNull(String.class), anyLong())).willReturn(refreshToken);
-        given(tokenStore.createAccessToken(anyString(), anyString(), anyString(), anyString(), anyString(), anyString(),
-                anySetOf(String.class), Matchers.<RefreshToken>anyObject(), anyString(), anyString(), eq(request)))
-                .willReturn(accessToken);
+        given(tokenStore.createRefreshToken(nullable(String.class), anyString(), nullable(String.class),
+                anyString(), anySetOf(String.class), eq(request), isNull(String.class), anyLong())).willReturn(refreshToken);
+        given(tokenStore.createAccessToken(nullable(String.class), anyString(), anyString(), nullable(String.class),
+                anyString(), anyString(), anySetOf(String.class), ArgumentMatchers.<RefreshToken>anyObject(),
+                nullable(String.class), nullable(String.class), eq(request))).willReturn(accessToken);
         given(providerSettings.validateAccessTokenScope(eq(clientRegistration), anySetOf(String.class), eq(request)))
                 .willReturn(validatedScope);
 
@@ -230,7 +232,7 @@ public class AuthorizationCodeGrantTypeHandlerTest {
         verify(authorizationCode).setIssued();
         verify(tokenStore).updateAuthorizationCode(request, authorizationCode);
         verify(accessToken).addExtraData(eq("refresh_token"), anyString());
-        verify(accessToken).addExtraData(eq("nonce"), anyString());
+        verify(accessToken).addExtraData(eq("nonce"), nullable(String.class));
         verify(providerSettings).additionalDataToReturnFromTokenEndpoint(accessToken, request);
         verify(accessToken, never()).addExtraData(eq("scope"), anyString());
         assertEquals(actualAccessToken, accessToken);
@@ -257,8 +259,9 @@ public class AuthorizationCodeGrantTypeHandlerTest {
         given(clientRegistration.getClientId()).willReturn("CLIENT_ID");
         given(authorizationCode.getExpiryTime()).willReturn(currentTimeMillis() + 100);
         given(providerSettings.issueRefreshTokens()).willReturn(false);
-        given(tokenStore.createAccessToken(anyString(), anyString(), anyString(), anyString(), anyString(), anyString(),
-                anySetOf(String.class), Matchers.<RefreshToken>anyObject(), anyString(), anyString(), eq(request)))
+        given(tokenStore.createAccessToken(nullable(String.class), anyString(), anyString(), nullable(String.class),
+                anyString(), anyString(), anySetOf(String.class), ArgumentMatchers.<RefreshToken>anyObject(),
+                nullable(String.class), nullable(String.class), eq(request)))
                 .willReturn(accessToken);
         given(providerSettings.validateAccessTokenScope(eq(clientRegistration), anySetOf(String.class), eq(request)))
                 .willReturn(validatedScope);
@@ -271,7 +274,7 @@ public class AuthorizationCodeGrantTypeHandlerTest {
         verify(authorizationCode).setIssued();
         verify(tokenStore).updateAuthorizationCode(request, authorizationCode);
         verify(accessToken, never()).addExtraData(eq("refresh_token"), anyString());
-        verify(accessToken).addExtraData(eq("nonce"), anyString());
+        verify(accessToken).addExtraData(eq("nonce"), nullable(String.class));
         verify(providerSettings).additionalDataToReturnFromTokenEndpoint(accessToken, request);
         verify(accessToken, never()).addExtraData(eq("scope"), anyString());
         assertEquals(actualAccessToken, accessToken);
@@ -298,8 +301,9 @@ public class AuthorizationCodeGrantTypeHandlerTest {
         given(clientRegistration.getClientId()).willReturn("CLIENT_ID");
         given(authorizationCode.getExpiryTime()).willReturn(currentTimeMillis() + 100);
         given(providerSettings.issueRefreshTokens()).willReturn(false);
-        given(tokenStore.createAccessToken(anyString(), anyString(), anyString(), anyString(), anyString(), anyString(),
-                anySetOf(String.class), Matchers.<RefreshToken>anyObject(), anyString(), anyString(), eq(request)))
+        given(tokenStore.createAccessToken(nullable(String.class), anyString(), anyString(), nullable(String.class),
+                anyString(), anyString(), anySetOf(String.class), ArgumentMatchers.<RefreshToken>anyObject(),
+                nullable(String.class), nullable(String.class), eq(request)))
                 .willReturn(accessToken);
         given(authorizationCode.getScope()).willReturn(validatedScope);
 
@@ -311,10 +315,271 @@ public class AuthorizationCodeGrantTypeHandlerTest {
         verify(authorizationCode).setIssued();
         verify(tokenStore).updateAuthorizationCode(request, authorizationCode);
         verify(accessToken, never()).addExtraData(eq("refresh_token"), anyString());
-        verify(accessToken).addExtraData(eq("nonce"), anyString());
+        verify(accessToken).addExtraData(eq("nonce"), nullable(String.class));
         verify(providerSettings).additionalDataToReturnFromTokenEndpoint(accessToken, request);
         verify(accessToken).addExtraData(eq("scope"), anyString());
         assertEquals(actualAccessToken, accessToken);
+    }
+
+    /**
+     * Stubs out the full happy path through {@code handle}, so that a test only needs to stub the
+     * PKCE specific values it cares about (enforcement flag, code challenge, challenge method and
+     * the supplied code_verifier).
+     *
+     * @return the mocked AuthorizationCode returned by the token store.
+     */
+    private AuthorizationCode givenHappyPathCode(OAuth2Request request, ClientRegistration clientRegistration,
+            AccessToken accessToken) throws Exception {
+
+        AuthorizationCode authorizationCode = mock(AuthorizationCode.class);
+        Set<String> validatedScope = new HashSet<String>();
+
+        given(request.getParameter("code")).willReturn("abc123");
+        given(uris.getTokenEndpoint()).willReturn("Token Endpoint");
+        given(clientAuthenticator.authenticate(request, "Token Endpoint")).willReturn(clientRegistration);
+        given(request.getParameter("redirect_uri")).willReturn("REDIRECT_URI");
+        given(tokenStore.readAuthorizationCode(eq(request), anyString())).willReturn(authorizationCode);
+        given(authorizationCode.isIssued()).willReturn(false);
+        given(authorizationCode.getRedirectUri()).willReturn("REDIRECT_URI");
+        given(authorizationCode.getClientId()).willReturn("CLIENT_ID");
+        given(clientRegistration.getClientId()).willReturn("CLIENT_ID");
+        given(authorizationCode.getExpiryTime()).willReturn(currentTimeMillis() + 100);
+        given(providerSettings.issueRefreshTokens()).willReturn(false);
+        given(tokenStore.createAccessToken(nullable(String.class), anyString(), anyString(), nullable(String.class),
+                anyString(), anyString(), anySetOf(String.class), ArgumentMatchers.<RefreshToken>anyObject(),
+                nullable(String.class), nullable(String.class), eq(request)))
+                .willReturn(accessToken);
+        given(providerSettings.validateAccessTokenScope(eq(clientRegistration), anySetOf(String.class), eq(request)))
+                .willReturn(validatedScope);
+
+        return authorizationCode;
+    }
+
+    @Test (expectedExceptions = InvalidRequestException.class)
+    public void handleShouldThrowInvalidRequestExceptionWhenEnforcedAndCodeHasNoChallenge() throws Exception {
+
+        //Given
+        OAuth2Request request = mock(OAuth2Request.class);
+        ClientRegistration clientRegistration = mock(ClientRegistration.class);
+        AccessToken accessToken = mock(AccessToken.class);
+        AuthorizationCode authorizationCode = givenHappyPathCode(request, clientRegistration, accessToken);
+
+        given(providerSettings.isCodeVerifierRequired()).willReturn(true);
+        given(authorizationCode.getCodeChallenge()).willReturn(null);
+        given(authorizationCode.getCodeChallengeMethod()).willReturn(null);
+        given(request.getParameter("code_verifier")).willReturn("anyVerifier");
+
+        //When
+        grantTypeHandler.handle(request);
+
+        //Then
+        // Expect InvalidRequestException
+    }
+
+    @Test (expectedExceptions = InvalidRequestException.class)
+    public void handleShouldThrowInvalidRequestExceptionWhenCodeVerifierIsEmpty() throws Exception {
+
+        //Given
+        OAuth2Request request = mock(OAuth2Request.class);
+        ClientRegistration clientRegistration = mock(ClientRegistration.class);
+        AccessToken accessToken = mock(AccessToken.class);
+        AuthorizationCode authorizationCode = givenHappyPathCode(request, clientRegistration, accessToken);
+
+        given(providerSettings.isCodeVerifierRequired()).willReturn(true);
+        given(authorizationCode.getCodeChallenge()).willReturn("E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM");
+        given(authorizationCode.getCodeChallengeMethod()).willReturn("plain");
+        given(request.getParameter("code_verifier")).willReturn("");
+
+        //When
+        grantTypeHandler.handle(request);
+
+        //Then
+        // Expect InvalidRequestException
+    }
+
+    @Test
+    public void handleShouldSucceedWhenChallengeMethodOmittedAndPlainVerifierMatches() throws Exception {
+
+        //Given
+        OAuth2Request request = mock(OAuth2Request.class);
+        ClientRegistration clientRegistration = mock(ClientRegistration.class);
+        AccessToken accessToken = mock(AccessToken.class);
+        AuthorizationCode authorizationCode = givenHappyPathCode(request, clientRegistration, accessToken);
+
+        given(providerSettings.isCodeVerifierRequired()).willReturn(false);
+        given(authorizationCode.getCodeChallenge()).willReturn("aPlainVerifier");
+        given(authorizationCode.getCodeChallengeMethod()).willReturn(null);
+        given(request.getParameter("code_verifier")).willReturn("aPlainVerifier");
+
+        //When
+        AccessToken actualAccessToken = grantTypeHandler.handle(request);
+
+        //Then
+        verify(authorizationCode).setIssued();
+        assertEquals(actualAccessToken, accessToken);
+    }
+
+    @Test (expectedExceptions = InvalidGrantException.class)
+    public void handleShouldThrowInvalidGrantExceptionWhenChallengeMethodOmittedAndPlainVerifierDoesNotMatch()
+            throws Exception {
+
+        //Given
+        OAuth2Request request = mock(OAuth2Request.class);
+        ClientRegistration clientRegistration = mock(ClientRegistration.class);
+        AccessToken accessToken = mock(AccessToken.class);
+        AuthorizationCode authorizationCode = givenHappyPathCode(request, clientRegistration, accessToken);
+
+        given(providerSettings.isCodeVerifierRequired()).willReturn(false);
+        given(authorizationCode.getCodeChallenge()).willReturn("aPlainVerifier");
+        given(authorizationCode.getCodeChallengeMethod()).willReturn(null);
+        given(request.getParameter("code_verifier")).willReturn("wrongVerifier");
+
+        //When
+        grantTypeHandler.handle(request);
+
+        //Then
+        // Expect InvalidGrantException
+    }
+
+    @Test
+    public void handleShouldSucceedWhenS256VerifierMatches() throws Exception {
+
+        //Given
+        OAuth2Request request = mock(OAuth2Request.class);
+        ClientRegistration clientRegistration = mock(ClientRegistration.class);
+        AccessToken accessToken = mock(AccessToken.class);
+        AuthorizationCode authorizationCode = givenHappyPathCode(request, clientRegistration, accessToken);
+
+        given(providerSettings.isCodeVerifierRequired()).willReturn(false);
+        given(authorizationCode.getCodeChallenge()).willReturn("E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM");
+        given(authorizationCode.getCodeChallengeMethod()).willReturn("S256");
+        given(request.getParameter("code_verifier")).willReturn("dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk");
+
+        //When
+        AccessToken actualAccessToken = grantTypeHandler.handle(request);
+
+        //Then
+        verify(authorizationCode).setIssued();
+        assertEquals(actualAccessToken, accessToken);
+    }
+
+    @Test (expectedExceptions = InvalidGrantException.class)
+    public void handleShouldThrowInvalidGrantExceptionWhenS256VerifierDoesNotMatch() throws Exception {
+
+        //Given
+        OAuth2Request request = mock(OAuth2Request.class);
+        ClientRegistration clientRegistration = mock(ClientRegistration.class);
+        AccessToken accessToken = mock(AccessToken.class);
+        AuthorizationCode authorizationCode = givenHappyPathCode(request, clientRegistration, accessToken);
+
+        given(providerSettings.isCodeVerifierRequired()).willReturn(false);
+        given(authorizationCode.getCodeChallenge()).willReturn("E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM");
+        given(authorizationCode.getCodeChallengeMethod()).willReturn("S256");
+        given(request.getParameter("code_verifier")).willReturn("wrongVerifier");
+
+        //When
+        grantTypeHandler.handle(request);
+
+        //Then
+        // Expect InvalidGrantException
+    }
+
+    @Test (expectedExceptions = InvalidRequestException.class)
+    public void handleShouldThrowInvalidRequestExceptionWhenCodeHasChallengeButNoVerifierSupplied() throws Exception {
+
+        //Given
+        OAuth2Request request = mock(OAuth2Request.class);
+        ClientRegistration clientRegistration = mock(ClientRegistration.class);
+        AccessToken accessToken = mock(AccessToken.class);
+        AuthorizationCode authorizationCode = givenHappyPathCode(request, clientRegistration, accessToken);
+
+        given(providerSettings.isCodeVerifierRequired()).willReturn(false);
+        given(authorizationCode.getCodeChallenge()).willReturn("E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM");
+        given(authorizationCode.getCodeChallengeMethod()).willReturn("S256");
+        given(request.getParameter("code_verifier")).willReturn(null);
+
+        //When
+        grantTypeHandler.handle(request);
+
+        //Then
+        // Expect InvalidRequestException
+    }
+
+    @Test (expectedExceptions = InvalidRequestException.class)
+    public void handleShouldThrowInvalidRequestExceptionWhenChallengeMethodIsUnknown() throws Exception {
+
+        //Given
+        OAuth2Request request = mock(OAuth2Request.class);
+        ClientRegistration clientRegistration = mock(ClientRegistration.class);
+        AccessToken accessToken = mock(AccessToken.class);
+        AuthorizationCode authorizationCode = givenHappyPathCode(request, clientRegistration, accessToken);
+
+        given(providerSettings.isCodeVerifierRequired()).willReturn(false);
+        given(authorizationCode.getCodeChallenge()).willReturn("E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM");
+        given(authorizationCode.getCodeChallengeMethod()).willReturn("bogus");
+        given(request.getParameter("code_verifier")).willReturn("anything");
+
+        //When
+        grantTypeHandler.handle(request);
+
+        //Then
+        // Expect InvalidRequestException
+    }
+
+    /**
+     * RFC 7636 4.3 defaults an <em>omitted</em> code_challenge_method to "plain". An explicitly empty
+     * value is malformed, not omitted: treating it as "plain" would downgrade a challenge that was
+     * meant to be S256 into one the verifier matches literally.
+     */
+    @Test (expectedExceptions = InvalidRequestException.class)
+    public void handleShouldThrowInvalidRequestExceptionWhenChallengeMethodIsEmptyString() throws Exception {
+
+        //Given
+        OAuth2Request request = mock(OAuth2Request.class);
+        ClientRegistration clientRegistration = mock(ClientRegistration.class);
+        AccessToken accessToken = mock(AccessToken.class);
+        AuthorizationCode authorizationCode = givenHappyPathCode(request, clientRegistration, accessToken);
+
+        given(providerSettings.isCodeVerifierRequired()).willReturn(false);
+        given(authorizationCode.getCodeChallenge()).willReturn("aPlainVerifier");
+        given(authorizationCode.getCodeChallengeMethod()).willReturn("");
+        given(request.getParameter("code_verifier")).willReturn("aPlainVerifier");
+
+        //When
+        grantTypeHandler.handle(request);
+
+        //Then
+        // Expect InvalidRequestException
+    }
+
+    /**
+     * The PKCE enforcement check must sit after the replay check, so that replaying a code minted
+     * without a challenge still invalidates the tokens issued from it instead of being turned away
+     * early by an InvalidRequestException.
+     */
+    @Test
+    public void handleShouldInvalidateTokensWhenChallengeLessCodeIsReplayedUnderEnforcement() throws Exception {
+
+        //Given
+        OAuth2Request request = mock(OAuth2Request.class);
+        ClientRegistration clientRegistration = mock(ClientRegistration.class);
+        AccessToken accessToken = mock(AccessToken.class);
+        AuthorizationCode authorizationCode = givenHappyPathCode(request, clientRegistration, accessToken);
+
+        given(providerSettings.isCodeVerifierRequired()).willReturn(true);
+        given(authorizationCode.getCodeChallenge()).willReturn(null);
+        given(request.getParameter("code_verifier")).willReturn("anyVerifier");
+        given(authorizationCode.isIssued()).willReturn(true);
+
+        try {
+            //When
+            grantTypeHandler.handle(request);
+            fail("Expected exception as authorization code has already been issued");
+        } catch (InvalidGrantException e) {
+            //Then
+            verify(tokenInvalidator).invalidateTokens(eq(request), nullable(String.class), nullable(String.class),
+                    nullable(String.class));
+        }
     }
 
     private static class Holder {

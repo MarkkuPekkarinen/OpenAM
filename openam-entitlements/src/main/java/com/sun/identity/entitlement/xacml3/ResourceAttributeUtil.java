@@ -12,6 +12,7 @@
  * information: "Portions copyright [year] [name of copyright owner]".
  *
  * Copyright 2014-2015 ForgeRock AS.
+ * Portions copyright 2026 3A Systems LLC.
  */
 package com.sun.identity.entitlement.xacml3;
 
@@ -19,6 +20,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sun.identity.entitlement.EntitlementException;
 import com.sun.identity.entitlement.Privilege;
 import com.sun.identity.entitlement.ResourceAttribute;
+
+import org.forgerock.openam.entitlement.utils.EntitlementUtils;
 
 import java.io.IOException;
 
@@ -75,17 +78,19 @@ public class ResourceAttributeUtil {
      */
     public ResourceAttribute fromJSON(String json) throws EntitlementException {
         try {
-            return (ResourceAttribute) mapper.readValue(getJSON(json), getClass(json));
+            return mapper.readValue(getJSON(json), getClass(json));
         } catch (IOException e) {
             throw new EntitlementException(JSON_PARSE_ERROR, e);
         }
     }
 
-    private Class getClass(String json) throws EntitlementException {
+    private Class<? extends ResourceAttribute> getClass(String json) throws EntitlementException {
         int pos = getSeparatorIndex(json);
         String classname = json.substring(0, pos);
         try {
-            return Class.forName(classname);
+            // Shared guard: loads WITHOUT initialising and rejects anything that is not an
+            // instantiable ResourceAttribute implementation (unsafe reflection, CWE-470).
+            return EntitlementUtils.resolveExtensionClass(classname, ResourceAttribute.class);
         } catch (ClassNotFoundException e) {
             throw new EntitlementException(
                     EntitlementException.UNKNOWN_RESOURCE_ATTRIBUTE_CLASS,

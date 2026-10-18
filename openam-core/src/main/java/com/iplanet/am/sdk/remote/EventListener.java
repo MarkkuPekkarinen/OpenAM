@@ -25,6 +25,7 @@
  * $Id: EventListener.java,v 1.12 2008/06/27 20:56:23 arviranga Exp $
  *
  * Portions Copyrighted 2011-2016 ForgeRock AS.
+ * Portions Copyrighted 2026 3A Systems, LLC
  */
 
 package com.iplanet.am.sdk.remote;
@@ -47,6 +48,7 @@ import com.iplanet.sso.SSOTokenManager;
 import com.sun.identity.common.GeneralTaskRunnable;
 import com.sun.identity.common.ShutdownManager;
 import com.sun.identity.common.SystemTimer;
+import com.sun.identity.jaxrpc.JAXRPCUtil;
 import com.sun.identity.shared.debug.Debug;
 import com.sun.identity.shared.jaxrpc.SOAPClient;
 import com.sun.identity.sm.CreateServiceConfig;
@@ -98,7 +100,7 @@ class EventListener {
     }
 
     /**
-     * Constructor for <class>EventListener</class>. Should be instantiated
+     * Constructor for <code>EventListener</code>. Should be instantiated
      * once by <code>RemoteServicesImpl</code>
      *
      */
@@ -120,8 +122,11 @@ class EventListener {
             try {
                 url = WebtopNaming.getNotificationURL();
 
-                // Register for notification with AM Server
-                Object result = client.send("registerNotificationURL", url.toString(), null, null);
+                // Register for notification with AM Server. Send the app (server/agent)
+                // SSO cookie so the server can authenticate this registration
+                // (GHSA-w858-46wv-v45w).
+                Object result = client.send("registerNotificationURL", url.toString(), null,
+                        JAXRPCUtil.getAppSSOTokenCookie());
                 if (result != null) {
                     remoteId = result.toString();
                 }
@@ -140,7 +145,8 @@ class EventListener {
                     public void shutdown() {
                         try {
                             if (remoteId != null) {
-                                client.send("deRegisterNotificationURL", remoteId, null, null);
+                                client.send("deRegisterNotificationURL", remoteId, null,
+                                        JAXRPCUtil.getAppSSOTokenCookie());
                                 if (debug.messageEnabled()) {
                                     debug.message("EventListener: deRegisterNotificationURL for " + remoteId);
                                 }
@@ -241,7 +247,6 @@ class EventListener {
      * Sends notifications to listeners added via <code>addListener</code>.
      * The parameter <code>nItem</code> is an XML document having a single
      * notification event, using the following DTD.
-     * <p>
      * 
      * <pre>
      *       &lt;!-- EventNotification element specifes the change notification

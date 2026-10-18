@@ -25,7 +25,7 @@
  * $Id: SAMLUtils.java,v 1.16 2010/01/09 19:41:06 qcheng Exp $
  *
  * Portions Copyrighted 2012-2016 ForgeRock AS.
- * Portions Copyrighted 2025 3A Systems LLC.
+ * Portions Copyrighted 2025-2026 3A Systems LLC.
  */
 
 package com.sun.identity.saml.common;
@@ -63,6 +63,7 @@ import com.sun.identity.common.SystemTimerPool;
 import com.sun.identity.common.TaskRunnable;
 import com.sun.identity.common.TimerPool;
 import com.sun.identity.shared.xml.XMLUtils;
+import org.apache.commons.lang3.StringEscapeUtils;
 import com.sun.identity.shared.encode.URLEncDec;
 import com.sun.identity.shared.encode.Base64;
 
@@ -742,7 +743,10 @@ public class SAMLUtils  extends SAMLUtilsCommon {
             }
             out.println("</P>\n");
         }
-        out.println("<FORM METHOD=\"POST\" ACTION=\"" + targeturl + "\">");
+        // postYN() only validates host, port and path of the target: the query
+        // string is caller-supplied, so it must not be able to close the attribute.
+        out.println("<FORM METHOD=\"POST\" ACTION=\""
+            + StringEscapeUtils.escapeHtml4(targeturl) + "\">");
         if (assertion != null) {
             it = assertion.iterator();
             while (it.hasNext()) {
@@ -814,8 +818,8 @@ public class SAMLUtils  extends SAMLUtilsCommon {
     }
     
     /**
-     * Replaces every occurence of ch with 
-     * "&#&lt;ascii code of ch>;"
+     * Replaces every occurence of ch with
+     * {@code "&#<ascii code of ch>;"}
      * @param srcStr orginal string to to be encoded.
      * @param ch the charactor needs to be encoded.
      * @return encoded string
@@ -1542,7 +1546,7 @@ public class SAMLUtils  extends SAMLUtilsCommon {
      * @param request HttpServletRequest
      * @param response HttpServletResponse
      * @param attrMap Attribute Map 
-     * @exception if failed to create Session
+     * @exception SAMLException if failed to create Session
      */
     public static Object generateSession(HttpServletRequest request,
         HttpServletResponse response, 

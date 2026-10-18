@@ -21,7 +21,7 @@
  <parent>
   <groupId>org.openidentityplatform.openam</groupId>
   <artifactId>openam-documentation</artifactId>
-  <version>16.0.7-SNAPSHOT</version>
+  <version>16.1.4-SNAPSHOT</version>
  </parent>
 
  <name>OpenAM Log Message Reference</name>
@@ -30,14 +30,6 @@
 
  <build>
   <plugins>
-
-   <plugin>
-    <groupId>org.apache.maven.plugins</groupId>
-    <artifactId>maven-javadoc-plugin</artifactId>
-    <configuration>
-     <skip>true</skip>
-    </configuration>
-   </plugin>
 
    <plugin>
     <groupId>org.codehaus.mojo</groupId>

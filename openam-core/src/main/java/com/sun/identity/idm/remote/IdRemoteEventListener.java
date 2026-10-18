@@ -25,6 +25,7 @@
  * $Id: IdRemoteEventListener.java,v 1.7 2009/01/28 05:35:00 ww203982 Exp $
  *
  * Portions Copyrighted 2011-2016 ForgeRock AS.
+ * Portions Copyrighted 2026 3A Systems, LLC
  */
 
 package com.sun.identity.idm.remote;
@@ -48,6 +49,7 @@ import com.sun.identity.common.GeneralTaskRunnable;
 import com.sun.identity.common.SystemTimer;
 import com.sun.identity.idm.AMIdentity;
 import com.sun.identity.idm.IdRepoListener;
+import com.sun.identity.jaxrpc.JAXRPCUtil;
 import com.sun.identity.shared.Constants;
 import com.sun.identity.shared.debug.Debug;
 import com.sun.identity.shared.jaxrpc.SOAPClient;
@@ -91,7 +93,7 @@ public class IdRemoteEventListener {
     }
 
     /**
-     * Constructor for <class>EventListener</class>. Should be instantiated
+     * Constructor for <code>EventListener</code>. Should be instantiated
      * once by <code>RemoteServicesImpl</code>
      *
      */
@@ -115,8 +117,10 @@ public class IdRemoteEventListener {
                 // Throws exception if NotificationURL is null
                 url = WebtopNaming.getNotificationURL();
                 
-                // Register for IdRepo Service
-                Object result = client.send("registerNotificationURL_idrepo", url.toString(), null, null);
+                // Register for IdRepo Service. Send the app (server/agent) SSO cookie so the
+                // server can authenticate this registration (GHSA-w858-46wv-v45w).
+                Object result = client.send("registerNotificationURL_idrepo", url.toString(), null,
+                        JAXRPCUtil.getAppSSOTokenCookie());
                 if (result != null) {
                     remoteId = result.toString();
                 }
@@ -136,7 +140,8 @@ public class IdRemoteEventListener {
                     public void shutdown() {
                         try {
                             if (remoteId != null) {
-                                client.send("deRegisterNotificationURL_idrepo", remoteId, null, null);
+                                client.send("deRegisterNotificationURL_idrepo", remoteId, null,
+                                        JAXRPCUtil.getAppSSOTokenCookie());
                                 if (DEBUG.messageEnabled()) {
                                     DEBUG.message("IdRemoteEventListener: deRegisterNotificationURL_idrepo for "
                                             + remoteId);
@@ -223,7 +228,6 @@ public class IdRemoteEventListener {
      * Sends notifications to listeners added via <code>addListener</code>.
      * The parameter <code>nItem</code> is an XML document having a single
      * notification event, using the following DTD.
-     * <p>
      * 
      * <pre>
      *       &lt;!-- EventNotification element specifes the change notification

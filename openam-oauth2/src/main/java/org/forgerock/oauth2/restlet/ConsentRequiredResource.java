@@ -13,7 +13,7 @@
  *
  * Copyright 2015-2016 ForgeRock AS.
  * Portions Copyrighted 2019 Open Source Solution Technology Corp.
- * Portions copyright 2025 3A Systems LLC.
+ * Portions Copyrighted 2025-2026 3A Systems LLC.
  */
 package org.forgerock.oauth2.restlet;
 
@@ -27,6 +27,7 @@ import java.util.Set;
 import org.apache.commons.lang3.StringUtils;
 import org.forgerock.json.JsonValue;
 import org.forgerock.openam.oauth2.OAuth2Constants;
+import org.forgerock.oauth2.core.CsrfProtection;
 import org.forgerock.oauth2.core.OAuth2Request;
 import org.forgerock.oauth2.core.ResourceOwnerSessionValidator;
 import org.forgerock.oauth2.core.exceptions.ResourceOwnerConsentRequired;
@@ -41,8 +42,6 @@ import org.restlet.data.Reference;
 import org.forgerock.openam.rest.jakarta.servlet.ServletUtils;
 import org.restlet.routing.Router;
 
-import com.iplanet.sso.SSOToken;
-
 import static org.forgerock.json.JsonValue.*;
 
 /**
@@ -54,13 +53,16 @@ public abstract class ConsentRequiredResource extends RouterContextResource {
     protected final XUIState xuiState;
     protected final BaseURLProviderFactory baseURLProviderFactory;
     private final ResourceOwnerSessionValidator resourceOwnerSessionValidator;
+    private final CsrfProtection csrfProtection;
 
     public ConsentRequiredResource(Router router, BaseURLProviderFactory baseURLProviderFactory,
-            XUIState xuiState, ResourceOwnerSessionValidator resourceOwnerSessionValidator) {
+            XUIState xuiState, ResourceOwnerSessionValidator resourceOwnerSessionValidator,
+            CsrfProtection csrfProtection) {
         super(router);
         this.baseURLProviderFactory = baseURLProviderFactory;
         this.xuiState = xuiState;
         this.resourceOwnerSessionValidator = resourceOwnerSessionValidator;
+        this.csrfProtection = csrfProtection;
     }
 
     /**
@@ -93,10 +95,9 @@ public abstract class ConsentRequiredResource extends RouterContextResource {
                 .getRootURL(ServletUtils.getRequest(getRequest())));
         data.put("saveConsentEnabled", consentRequired.isSaveConsentEnabled());
 
-        SSOToken token = resourceOwnerSessionValidator.getResourceOwnerSession(request);
-        if (token != null) {
-            data.put("csrf", token.getTokenID().toString());
-        }
+        // Mint a dedicated, random CSRF token bound to this authorization request instead of reusing the
+        // script-readable SSO cookie value. This allows the SSO cookie to ship as HttpOnly.
+        data.put("csrf", csrfProtection.createCsrfToken(request));
         List<String> locale = new ArrayList<>();
         for (Preference<Language> language : getRequest().getClientInfo().getAcceptedLanguages()) {
             locale.add(language.getMetadata().getName());
@@ -108,12 +109,16 @@ public abstract class ConsentRequiredResource extends RouterContextResource {
 
     private void addDisplayScopesAndClaims(ResourceOwnerConsentRequired consentRequired, Map<String, Object> data) {
         JsonValue scopes = json(array());
+        List<String> scopeNames = new ArrayList<>();
         Set<String> allScopeClaims = new HashSet<>();
         final Map<String, List<String>> compositeScopes = consentRequired.getClaims().getCompositeScopes();
         final Map<String, String> claimDescriptions = consentRequired.getClaimDescriptions();
         final Map<String, Object> claimValues = new LinkedHashMap<>(consentRequired.getClaims().getValues());
 
         for (Map.Entry<String, String> scope : consentRequired.getScopeDescriptions().entrySet()) {
+            if (scope.getValue() != null) {
+                scopeNames.add(scope.getValue());
+            }
             JsonValue value = json(object(field("name", encodeForHTML(scope.getValue()))));
             scopes.add(value.getObject());
             List<String> scopeClaims = compositeScopes.get(scope.getKey());
@@ -136,6 +141,10 @@ public abstract class ConsentRequiredResource extends RouterContextResource {
             }
         }
         data.put("display_scopes", scopes.toString());
+        // Raw (unencoded) scope descriptions for the WAP consent template, which iterates them as a
+        // FreeMarker sequence and applies ?html escaping at the template layer. Set after the raw query
+        // parameters have been copied into the model so an attacker cannot supply display_scope themselves.
+        data.put("display_scope", scopeNames);
 
         for (String claim : allScopeClaims) {
             claimValues.remove(claim);
